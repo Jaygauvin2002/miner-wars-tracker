@@ -153,6 +153,64 @@
   .streak-ok{color:var(--green);} .streak-todo{color:var(--red);}
   small{font-size:.72rem;}
   hr{border:none;border-top:1px solid var(--border);margin:14px 0;}
+
+  /* ============ OPTIMISATION DESKTOP / MACBOOK (≥ 861px) ============
+     Bloc additif : sur grand écran on abandonne le modèle mobile
+     (barre du bas, colonne étroite) pour une vraie disposition d'app. */
+  @media (min-width: 861px){
+    body{ display:flex; min-height:100vh; padding-bottom:0; }
+
+    /* La barre d'onglets devient une barre latérale gauche */
+    nav{
+      order:-1;                              /* sidebar à gauche du contenu */
+      position:sticky; top:0; align-self:flex-start;
+      width:212px; height:100vh; flex-direction:column; gap:4px;
+      border-top:none; border-right:1px solid var(--border);
+      background:var(--surface); padding:18px 10px; backdrop-filter:none;
+    }
+    nav::before{
+      content:"⚔️ Miner Wars"; display:block;
+      font-weight:700; font-size:1.05rem; color:var(--text);
+      padding:6px 12px 16px;
+    }
+    nav button{
+      flex:0 0 auto;                         /* pas d'étirement vertical */
+      flex-direction:row; justify-content:flex-start; gap:12px;
+      width:100%; padding:11px 14px; border-radius:10px; font-size:.95rem;
+    }
+    nav button .ic{ font-size:1.25rem; }
+    nav button:hover{ background:var(--surface2); }
+    nav button.active{ background:var(--surface2); color:var(--accent); }
+
+    /* Zone de contenu principale, centrée et plus large */
+    .app{ flex:1; max-width:1000px; margin:0 auto; padding:26px 32px 60px; }
+    header h1{ display:none; }               /* titre déjà dans la sidebar */
+    header{ justify-content:flex-end; }
+
+    /* Statistiques : autant de colonnes que la largeur le permet */
+    .grid{ grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); }
+
+    /* Graphiques : 2 par rangée, la courbe du solde en pleine largeur */
+    #tab-graphiques{ display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; align-items:start; }
+    #tab-graphiques .card{ margin-bottom:0; }
+    #tab-graphiques .card:nth-child(3){ grid-column:1 / -1; }
+    .chart-wrap{ height:260px; }
+
+    /* Saisie : les 3 boutons d'action côte à côte */
+    #tab-saisie .card:first-child{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    #tab-saisie .card:first-child .btn{ margin-bottom:0; }
+
+    /* Champs de config : ne pas les étirer sur toute la largeur */
+    #tab-reglages input, #tab-reglages select{ max-width:460px; }
+
+    /* Modale : boîte centrée (au lieu d'une feuille qui monte du bas) */
+    .modal-bg{ align-items:center; justify-content:center; }
+    .modal{ border-radius:16px; max-width:560px; max-height:88vh; padding:22px 22px 24px; animation:none; }
+
+    /* Fiche Plan : 2 colonnes de cartes pour exploiter la largeur */
+    #tab-plan{ column-count:2; column-gap:16px; }
+    #tab-plan .card{ break-inside:avoid; }
+  }
 </style>
 </head>
 <body>
