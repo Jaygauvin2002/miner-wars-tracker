@@ -546,7 +546,7 @@ function ouvrirForm(type, id){
     html += `<label>Multiplicateur</label><div class="mult-grid" id="multGrid">`;
     MULTIS.forEach(mx=> html += `<button type="button" data-m="${mx}" class="${multChoisi===mx?'sel':''}" onclick="choisirMult(${mx})">x${mx}</button>`);
     html += `</div>`;
-    html += champ("Récompense clan (sats)", `<input type="number" inputmode="numeric" id="f_sats" value="${e? e.btcSats : ''}">`);
+    html += champ("Récompense clan TOTALE du bloc (sats)", `<input type="number" inputmode="numeric" id="f_sats" value="${e? e.btcSats : ''}">`);
     html += champ("Bloc perso (GMT)", `<input type="number" inputmode="decimal" id="f_gmtperso" value="${e? e.gmtPerso : ''}">`);
     html += champ("Spells actifs", `<input type="text" id="f_spells" value="${e? escAttr(e.spellsActifs) : ''}">`);
     html += champ("Durée de la ronde (min, optionnel)", `<input type="number" inputmode="numeric" id="f_duree" value="${e&&e.dureeRondeMin? e.dureeRondeMin : ''}">`);
@@ -598,6 +598,7 @@ function toLocalInput(d){
 function num(id){ const v = parseFloat(document.getElementById(id).value); return isNaN(v)?0:v; }
 function txt(id){ return document.getElementById(id).value.trim(); }
 function valNum(sel){ const el=document.querySelector(sel); const v=el?parseFloat(el.value):NaN; return isNaN(v)?0:v; } // lecture par sélecteur (Config bot)
+function snapshotPrix(obj){ if(prix){ obj.prixBtcUsd = prix.bitcoin; obj.prixGmtUsd = prix.gomining; } } // fige les prix USD au moment de la saisie
 
 /* ---------- Validation + sauvegarde d'une entrée ---------- */
 function sauverEntree(type){
@@ -623,12 +624,14 @@ function sauverEntree(type){
     const duree = num("f_duree");
     obj.dureeRondeMin = duree>0 ? duree : null;
     if(obj.btcSats < 0 || obj.gmtPerso < 0){ toast("Valeurs négatives interdites"); return; }
+    snapshotPrix(obj);
   }
   else if(type==="payout"){
     obj.btcSatsRecu = num("f_satsrecu");
     obj.gmtRecu = num("f_gmtrecu");
     obj.fraisSats = num("f_frais");
     if(obj.btcSatsRecu < 0 || obj.gmtRecu < 0 || obj.fraisSats < 0){ toast("Valeurs négatives interdites"); return; }
+    snapshotPrix(obj);
   }
   else if(type==="botcfg"){
     obj.cycleKey = cleCycle(date);   // rattache la config au cycle
@@ -702,21 +705,38 @@ function statsCycle(debut){
   const payouts = es.filter(e=>e.type==="payout");
 
   const depGmt = jours.reduce((s,e)=> s + e.gmtDepenseBot + e.gmtDepenseManuel, 0);
-  const satsGagnes = blocs.reduce((s,e)=> s + e.btcSats, 0)
-                   + payouts.reduce((s,e)=> s + e.btcSatsRecu - e.fraisSats, 0);
-  const gmtGagnes  = blocs.reduce((s,e)=> s + e.gmtPerso, 0)
-                   + payouts.reduce((s,e)=> s + e.gmtRecu, 0);
 
-  const depUSD    = gmtEnUSD(depGmt);
-  const gainsUSD  = satsEnUSD(satsGagnes) + gmtEnUSD(gmtGagnes);
-  const roiUSD    = gainsUSD - depUSD;
+  // GROUND TRUTH = le payout (ce qui est réellement reçu). Les blocs servent seulement
+  // à estimer AVANT le payout et à ventiler par multiplicateur (diagnostic).
+  // -> on n'additionne JAMAIS blocs + payout (sinon double comptage).
+  const aPayout = payouts.length > 0;
+  const satsGagnes = aPayout
+    ? payouts.reduce((s,e)=> s + e.btcSatsRecu - e.fraisSats, 0)
+    : blocs.reduce((s,e)=> s + e.btcSats, 0);
+  const gmtGagnes = aPayout
+    ? payouts.reduce((s,e)=> s + e.gmtRecu, 0)
+    : blocs.reduce((s,e)=> s + e.gmtPerso, 0);
+
+  // Prix figés du cycle : on valorise au prix snapshotté du payout si dispo, sinon
+  // au prix live -> comparaison inter-cycles équitable (la dérive de prix s'annule).
+  const snap = payouts.find(p=>p.prixBtcUsd) || null;
+  const pxBtc = snap ? snap.prixBtcUsd : (prix ? prix.bitcoin : 0);
+  const pxGmt = snap ? snap.prixGmtUsd : (prix ? prix.gomining : 0);
+
+  const depUSD   = depGmt * pxGmt;
+  const gainsUSD = (satsGagnes / SATS_PAR_BTC) * pxBtc + gmtGagnes * pxGmt;
+  const roiUSD   = gainsUSD - depUSD;
+
+  // Diagnostic de réconciliation blocs vs payout (repère les oublis de saisie)
+  const satsBlocs = blocs.reduce((s,e)=>s+e.btcSats,0);
+  const gmtBlocs  = blocs.reduce((s,e)=>s+e.gmtPerso,0);
 
   const nbBlocs   = blocs.length;
-  const satsMoy   = nbBlocs ? blocs.reduce((s,e)=>s+e.btcSats,0)/nbBlocs : 0;
-  const gmtBlocMoy= nbBlocs ? blocs.reduce((s,e)=>s+e.gmtPerso,0)/nbBlocs : 0;
+  const satsMoy   = nbBlocs ? satsBlocs/nbBlocs : 0;
+  const gmtBlocMoy= nbBlocs ? gmtBlocs/nbBlocs : 0;
   const coutGmtParBloc = nbBlocs ? depGmt/nbBlocs : 0;
 
-  return { es, jours, blocs, payouts, depGmt, satsGagnes, gmtGagnes, depUSD, gainsUSD, roiUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
+  return { es, jours, blocs, payouts, aPayout, depGmt, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
 function renderDashboard(){
@@ -737,6 +757,8 @@ function renderDashboard(){
       <div class="stat"><div class="label">ROI du cycle</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}</div><div class="sub">gains − dépenses</div></div>
       <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}</div><div class="sub">ce cycle</div></div>
     </div>
+    ${!s.aPayout && s.nbBlocs ? '<small class="muted">⏳ Gains provisoires (estimés via les blocs — pas encore de payout ce cycle).</small>' : ''}
+    ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats saisis en blocs vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} sats au payout — le ROI se base sur le payout.</small>` : ''}
   </div>`;
 
   html += `<div class="card">
@@ -1002,6 +1024,8 @@ function statsGlobales(){
       cycle:k, blocs:s.nbBlocs, depGmt:+s.depGmt.toFixed(2),
       satsGagnes:s.satsGagnes, gmtGagnes:+s.gmtGagnes.toFixed(2),
       depUSD:+s.depUSD.toFixed(2), gainsUSD:+s.gainsUSD.toFixed(2), roiUSD:+s.roiUSD.toFixed(2),
+      aPayout:s.aPayout, pxBtcUsd:+(s.pxBtc||0).toFixed(2), pxGmtUsd:+(s.pxGmt||0).toFixed(4),
+      satsBlocs:s.satsBlocs, gmtBlocs:+s.gmtBlocs.toFixed(2),
       satsMoyParBloc:Math.round(s.satsMoy), coutGmtParBloc:+s.coutGmtParBloc.toFixed(2),
       gmtBotReel:+cfgs.reduce((a,e)=>a+(e.gmtBotTotal||0),0).toFixed(2),
       parMultiplicateur: Object.values(parMult).sort((a,b)=>a.mult-b.mult)
