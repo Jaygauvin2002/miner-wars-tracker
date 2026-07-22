@@ -123,6 +123,7 @@
   .badge.jour{background:#1e2a3a;color:#93c5fd;}
   .badge.bloc{background:#2a2410;color:#f0d24b;}
   .badge.payout{background:#0f2a1c;color:#6ee7a8;}
+  .badge.botcfg{background:#241a33;color:#c4a3f0;}
   .item .date{font-size:.78rem;color:var(--muted);}
   .item .detail{font-size:.85rem;color:var(--text);margin-top:6px;}
   .item .acts{display:flex;gap:6px;margin-top:8px;}
@@ -197,7 +198,7 @@
     .chart-wrap{ height:260px; }
 
     /* Saisie : les 3 boutons d'action côte à côte */
-    #tab-saisie .card:first-child{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    #tab-saisie .card:first-child{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:12px; }
     #tab-saisie .card:first-child .btn{ margin-bottom:0; }
 
     /* Champs de config : ne pas les étirer sur toute la largeur */
@@ -226,6 +227,7 @@
       <button class="btn big blue" onclick="ouvrirForm('jour')">📅 Journée</button>
       <button class="btn big green" onclick="ouvrirForm('bloc')">🎉 Bloc gagné</button>
       <button class="btn big accent" onclick="ouvrirForm('payout')">💰 Payout mardi</button>
+      <button class="btn big" onclick="ouvrirForm('botcfg')">🤖 Config bot (cycle)</button>
     </div>
     <div class="card" id="rappelService"></div>
   </section>
@@ -249,6 +251,7 @@
       <button data-f="jour">Journées</button>
       <button data-f="bloc">Blocs</button>
       <button data-f="payout">Payouts</button>
+      <button data-f="botcfg">Config bot</button>
     </div>
     <div id="histList"></div>
   </section>
@@ -306,7 +309,7 @@
       <ul style="margin:6px 0 0;padding-left:18px">
         <li><b>Clique le bouton Service CHAQUE jour</b> : points gratuits (PPS × 1000) + rabais maintenance jusqu'à 3 % (+0,3 %/jour, remis à zéro si tu sautes un jour).</li>
         <li>Saisis chaque bloc gagné (&lt; 15 s) : multiplicateur, sats, GMT perso.</li>
-        <li><b>Mardi :</b> saisis le payout (sats reçus, GMT reçu, frais).</li>
+        <li><b>Mardi (fin de cycle) :</b> saisis le payout, puis la <b>Config bot</b> (spells + GMT dépensé par multiplicateur — c'est ce qui rend l'EV fiable, pertes incluses).</li>
       </ul>
     </div>
 
@@ -399,6 +402,7 @@
 
 /* ---------- Constantes ---------- */
 const MULTIS = [1, 2, 4, 8, 16, 32];        // multiplicateurs permis
+const SPELLS = ["Instant", "Power", "Echo", "Focus"]; // familles de spells (Config bot)
 const SATS_PAR_BTC = 100000000;             // 1 BTC = 100 000 000 sats
 const CACHE_PRIX_MS = 10 * 60 * 1000;       // 10 minutes
 
@@ -552,6 +556,24 @@ function ouvrirForm(type, id){
     html += champ("GMT reçu", `<input type="number" inputmode="decimal" id="f_gmtrecu" value="${e? e.gmtRecu : ''}">`);
     html += champ("Frais (sats)", `<input type="number" inputmode="numeric" id="f_frais" value="${e? e.fraisSats : ''}">`);
   }
+  else if(type==="botcfg"){
+    // Une entrée par cycle : ce que le bot a fait, PAR multiplicateur.
+    // Le "GMT dépensé" inclut les rounds boostés perdus → dénominateur réel de l'EV.
+    html += `<small class="muted">À saisir une fois par cycle (le mardi). Le GMT dépensé par multiplicateur inclut les rounds perdus — c'est ce qui rend l'EV fiable.</small>`;
+    MULTIS.forEach(mx=>{
+      const st = e && e.setups ? e.setups.find(s=>s.mult===mx) : null;
+      html += `<div style="border:1px solid var(--border);border-radius:10px;padding:10px;margin-top:10px">
+        <div style="font-weight:700;color:var(--accent);margin-bottom:6px">x${mx}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:6px">
+          ${SPELLS.map(sp=>`<label style="display:flex;align-items:center;gap:5px;margin:0;color:var(--text);font-size:.9rem"><input type="checkbox" class="bs_${mx}" value="${sp}" ${st&&st.spells&&st.spells.includes(sp)?'checked':''}>${sp}</label>`).join("")}
+        </div>
+        <div class="two">
+          ${champ("GMT dépensé ce cycle", `<input type="number" inputmode="decimal" class="bg_${mx}" value="${st? st.gmtDepense : ''}">`)}
+          ${champ("Coût / cast (option.)", `<input type="number" inputmode="decimal" class="bc_${mx}" value="${st&&st.coutCast? st.coutCast : ''}">`)}
+        </div>
+      </div>`;
+    });
+  }
 
   html += champ("Notes", `<textarea id="f_notes">${e? escHtml(e.notes||'') : ''}</textarea>`);
   html += `<button class="btn accent" style="margin-top:16px" onclick="sauverEntree('${type}')">💾 Enregistrer</button>`;
@@ -560,7 +582,7 @@ function ouvrirForm(type, id){
   m.innerHTML = html;
   document.getElementById("modalBg").classList.add("show");
 }
-function titreForm(t){ return t==="jour"?"📅 Journée":t==="bloc"?"🎉 Bloc gagné":"💰 Payout"; }
+function titreForm(t){ return t==="jour"?"📅 Journée":t==="bloc"?"🎉 Bloc gagné":t==="payout"?"💰 Payout":"🤖 Config du bot (par cycle)"; }
 function champ(label, input){ return `<label>${label}</label>${input}`; }
 function choisirMult(m){
   multChoisi = m;
@@ -575,6 +597,7 @@ function toLocalInput(d){
 }
 function num(id){ const v = parseFloat(document.getElementById(id).value); return isNaN(v)?0:v; }
 function txt(id){ return document.getElementById(id).value.trim(); }
+function valNum(sel){ const el=document.querySelector(sel); const v=el?parseFloat(el.value):NaN; return isNaN(v)?0:v; } // lecture par sélecteur (Config bot)
 
 /* ---------- Validation + sauvegarde d'une entrée ---------- */
 function sauverEntree(type){
@@ -606,6 +629,22 @@ function sauverEntree(type){
     obj.gmtRecu = num("f_gmtrecu");
     obj.fraisSats = num("f_frais");
     if(obj.btcSatsRecu < 0 || obj.gmtRecu < 0 || obj.fraisSats < 0){ toast("Valeurs négatives interdites"); return; }
+  }
+  else if(type==="botcfg"){
+    obj.cycleKey = cleCycle(date);   // rattache la config au cycle
+    obj.setups = [];
+    for(const mx of MULTIS){
+      const gmtDep = valNum(".bg_"+mx);
+      const coutCast = valNum(".bc_"+mx);
+      if(gmtDep < 0 || coutCast < 0){ toast("Valeurs négatives interdites"); return; }
+      const spells = [...document.querySelectorAll(".bs_"+mx)].filter(c=>c.checked).map(c=>c.value);
+      // on ne garde que les multiplicateurs réellement financés/configurés
+      if(gmtDep>0 || coutCast>0 || spells.length){
+        obj.setups.push({ mult:mx, spells, gmtDepense:gmtDep, coutCast: coutCast>0?coutCast:null });
+      }
+    }
+    obj.gmtBotTotal = obj.setups.reduce((a,s)=>a+s.gmtDepense,0);
+    if(!obj.setups.length){ toast("Renseigne au moins un multiplicateur"); return; }
   }
 
   if(editId){ entries = entries.map(x=> x.id===editId ? obj : x); }
@@ -727,27 +766,46 @@ function renderDashboard(){
   c.innerHTML = html;
 }
 
-/* EV par multiplicateur : (gains USD attribués au multiplicateur) / (dépenses attribuées au prorata).
-   Approximation : les dépenses GMT totales sont réparties entre les blocs au prorata du nombre de blocs. */
+/* EV par multiplicateur = gains ÷ dépenses, PAR multiplicateur.
+   Si des entrées "Config bot" existent, on utilise le GMT RÉELLEMENT dépensé par
+   multiplicateur (pertes incluses) → EV fiable. Sinon on retombe sur une approximation
+   au prorata du nombre de blocs (et on le signale clairement). */
 function renderEV(){
   const blocs = entries.filter(e=>e.type==="bloc");
-  if(!blocs.length) return "";
+  const cfgs  = entries.filter(e=>e.type==="botcfg");
+  if(!blocs.length && !cfgs.length) return "";
+
+  // Dépense réelle + spells par multiplicateur, agrégés depuis les Config bot
+  const depReelle = {}, spellsMult = {};
+  cfgs.forEach(e=> (e.setups||[]).forEach(s=>{
+    depReelle[s.mult] = (depReelle[s.mult]||0) + (s.gmtDepense||0);
+    spellsMult[s.mult] = spellsMult[s.mult] || new Set();
+    (s.spells||[]).forEach(sp=> spellsMult[s.mult].add(sp));
+  }));
+  const aReel = Object.keys(depReelle).length>0;
+
+  // Fallback prorata si aucune Config bot n'a été saisie
   const depTotaleGmt = entries.filter(e=>e.type==="jour").reduce((s,e)=>s+e.gmtDepenseBot+e.gmtDepenseManuel,0);
   const depParBlocUSD = blocs.length ? gmtEnUSD(depTotaleGmt)/blocs.length : 0;
 
   let rows = "";
   MULTIS.forEach(mx=>{
     const bs = blocs.filter(b=>b.multiplicateur===mx);
-    if(!bs.length) return;
+    const depGmtMx = depReelle[mx]||0;
+    if(!bs.length && !depGmtMx) return;              // rien pour ce palier
     const gainsUSD = bs.reduce((s,b)=> s + satsEnUSD(b.btcSats) + gmtEnUSD(b.gmtPerso), 0);
-    const depUSD = depParBlocUSD * bs.length;
+    const depUSD = aReel ? gmtEnUSD(depGmtMx) : depParBlocUSD * bs.length;
     const ev = depUSD>0 ? gainsUSD/depUSD : 0;
-    rows += `<div class="stat"><div class="label">x${mx} · ${bs.length} bloc${bs.length>1?'s':''}</div>
+    const sp = spellsMult[mx] ? [...spellsMult[mx]].join("/") : "";
+    rows += `<div class="stat"><div class="label">x${mx} · ${bs.length} bloc${bs.length>1?'s':''}${sp?" · "+sp:""}</div>
       <div class="val ${ev>=1?'pos':'neg'}">${depUSD>0?ev.toFixed(2)+"×":"—"}</div>
-      <div class="sub">${fmtUSD(gainsUSD)} gagnés</div></div>`;
+      <div class="sub">${fmtUSD(gainsUSD)} gagnés${aReel?` · ${fmtNum(depGmtMx,1)} GMT dép.`:""}</div></div>`;
   });
-  return `<div class="card"><h2>EV par multiplicateur (approx.)</h2><div class="grid">${rows}</div>
-    <small class="muted">Ratio gains ÷ dépenses attribuées au prorata du nombre de blocs. > 1× = profitable.</small></div>`;
+  const note = aReel
+    ? "Basé sur le GMT réellement dépensé par multiplicateur (Config bot), pertes incluses. > 1× = profitable."
+    : "⚠️ Approximation au prorata des blocs (aucune Config bot saisie). Ajoute une « Config bot » pour une EV fiable.";
+  return `<div class="card"><h2>EV par multiplicateur</h2><div class="grid">${rows}</div>
+    <small class="muted">${note}</small></div>`;
 }
 
 /* Comparaison cycle passif de référence vs cycle courant. */
@@ -842,7 +900,7 @@ function renderHistorique(){
   list.innerHTML = es.map(e=>{
     return `<div class="item">
       <div class="top">
-        <span class="badge ${e.type}">${e.type==="jour"?"📅 Journée":e.type==="bloc"?"🎉 Bloc x"+e.multiplicateur:"💰 Payout"}</span>
+        <span class="badge ${e.type}">${e.type==="jour"?"📅 Journée":e.type==="bloc"?"🎉 Bloc x"+e.multiplicateur:e.type==="payout"?"💰 Payout":"🤖 Config bot"}</span>
         <span class="date">${fmtDate(e.date)}</span>
       </div>
       <div class="detail">${detailEntree(e)}</div>
@@ -863,6 +921,10 @@ function detailEntree(e){
   }
   if(e.type==="payout"){
     return `Reçu ${fmtNum(e.btcSatsRecu)} sats · ${fmtNum(e.gmtRecu,2)} GMT · frais ${fmtNum(e.fraisSats)} sats` + notes(e);
+  }
+  if(e.type==="botcfg"){
+    const parts = (e.setups||[]).map(s=> `x${s.mult} : ${fmtNum(s.gmtDepense,1)} GMT${s.spells&&s.spells.length?" ("+s.spells.join("/")+")":""}`);
+    return `Config bot — ${fmtNum(e.gmtBotTotal||0,1)} GMT total<br><span class="muted">${parts.join(" · ")||"—"}</span>` + notes(e);
   }
 }
 function notes(e){ return e.notes ? `<br><span class="muted">📝 ${escHtml(e.notes)}</span>` : ""; }
@@ -922,11 +984,27 @@ function statsGlobales(){
   });
   Object.keys(cycles).forEach(k=>{
     const s = statsCycle(minuit(k));
+    // Vue par multiplicateur : dépense réelle + spells (Config bot) croisés aux gains (blocs)
+    const cfgs = entries.filter(e=>e.type==="botcfg" && cleCycle(e.date)===k);
+    const parMult = {};
+    cfgs.forEach(e=> (e.setups||[]).forEach(st=>{
+      const m = parMult[st.mult] || (parMult[st.mult] = { mult:st.mult, gmtDepense:0, spells:[] });
+      m.gmtDepense += st.gmtDepense||0;
+      (st.spells||[]).forEach(sp=>{ if(!m.spells.includes(sp)) m.spells.push(sp); });
+    }));
+    s.blocs.forEach(b=>{
+      const m = parMult[b.multiplicateur] || (parMult[b.multiplicateur] = { mult:b.multiplicateur, gmtDepense:0, spells:[] });
+      m.blocsGagnes = (m.blocsGagnes||0)+1;
+      m.satsGagnes = (m.satsGagnes||0)+b.btcSats;
+      m.gmtPersoGagne = +(((m.gmtPersoGagne||0)+b.gmtPerso).toFixed(2));
+    });
     cycles[k] = {
       cycle:k, blocs:s.nbBlocs, depGmt:+s.depGmt.toFixed(2),
       satsGagnes:s.satsGagnes, gmtGagnes:+s.gmtGagnes.toFixed(2),
       depUSD:+s.depUSD.toFixed(2), gainsUSD:+s.gainsUSD.toFixed(2), roiUSD:+s.roiUSD.toFixed(2),
-      satsMoyParBloc:Math.round(s.satsMoy), coutGmtParBloc:+s.coutGmtParBloc.toFixed(2)
+      satsMoyParBloc:Math.round(s.satsMoy), coutGmtParBloc:+s.coutGmtParBloc.toFixed(2),
+      gmtBotReel:+cfgs.reduce((a,e)=>a+(e.gmtBotTotal||0),0).toFixed(2),
+      parMultiplicateur: Object.values(parMult).sort((a,b)=>a.mult-b.mult)
     };
   });
   return {
@@ -960,10 +1038,11 @@ function exportCSV(){
   // Un CSV à plat : toutes les colonnes possibles.
   const cols = ["id","date","type","thTotal","gmtDepenseBot","gmtDepenseManuel","serviceFait","soldeBot",
     "multiplicateur","btcSats","gmtPerso","spellsActifs","dureeRondeMin",
-    "btcSatsRecu","gmtRecu","fraisSats","notes"];
+    "btcSatsRecu","gmtRecu","fraisSats","cycleKey","gmtBotTotal","setups","notes"];
   const esc = v => v==null?"":`"${String(v).replace(/"/g,'""')}"`;
+  const cell = (e,c)=> (c==="setups" && e[c]) ? esc(JSON.stringify(e[c])) : esc(e[c]); // setups → JSON
   const lignes = [cols.join(",")].concat(
-    entries.map(e=> cols.map(c=> esc(e[c])).join(","))
+    entries.map(e=> cols.map(c=> cell(e,c)).join(","))
   );
   telecharger(lignes.join("\n"), "miner-wars-"+dateFichier()+".csv", "text/csv");
   marquerExport();
