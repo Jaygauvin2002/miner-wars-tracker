@@ -180,7 +180,7 @@
   <!-- ======================= ONGLET : GRAPHIQUES ======================= -->
   <section id="tab-graphiques" class="hidden">
     <div class="card"><h2>Blocs par multiplicateur</h2><div class="chart-wrap"><canvas id="chMult"></canvas></div></div>
-    <div class="card"><h2>Cumul gains vs dépenses (CAD)</h2><div class="chart-wrap"><canvas id="chCumul"></canvas></div></div>
+    <div class="card"><h2>Cumul gains vs dépenses (USD)</h2><div class="chart-wrap"><canvas id="chCumul"></canvas></div></div>
     <div class="card"><h2>Solde du Spell Bot</h2><div class="chart-wrap"><canvas id="chBot"></canvas></div></div>
   </section>
 
@@ -204,7 +204,7 @@
         <li><b>456 TH · EE 15 W/TH</b> → bonus de points +33 %, score effectif ≈ <b>608 pts/s</b>.</li>
         <li><b>Solo dans ton clan :</b> quand tu gagnes, tu prends <b>100 %</b> (pool BTC + GMT perso). Mais ta probabilité de gagner = ton seul score contre des clans à centaines de membres.</li>
         <li>👉 Tes spells sont ton <b>seul levier</b> sur la probabilité de gagner un bloc.</li>
-        <li><b>Objectif :</b> maximiser le ROI net (gains CAD − dépenses GMT).</li>
+        <li><b>Objectif :</b> maximiser le ROI net (gains USD − dépenses GMT).</li>
       </ul>
     </div>
 
@@ -233,8 +233,8 @@
     <div class="card">
       <h2>💸 Budget</h2>
       <div class="grid">
-        <div class="stat"><div class="label">Plafond / cycle</div><div class="val">~245 GMT</div><div class="sub">≈ 100 $ CAD</div></div>
-        <div class="stat"><div class="label">Départ (phase 2)</div><div class="val">~100 GMT</div><div class="sub">≈ 40 $ CAD</div></div>
+        <div class="stat"><div class="label">Plafond / cycle</div><div class="val">~245 GMT</div><div class="sub">≈ 71 US$</div></div>
+        <div class="stat"><div class="label">Départ (phase 2)</div><div class="val">~100 GMT</div><div class="sub">≈ 29 US$</div></div>
       </div>
       <ul style="margin:10px 0 0;padding-left:18px;font-size:.9rem">
         <li>Le bot ne doit <b>jamais</b> coûter plus que ce que tu récupères.</li>
@@ -354,7 +354,7 @@ function ecrire(cle, val){ localStorage.setItem("mw_" + cle, JSON.stringify(val)
 /* ---------- État global ---------- */
 let entries = lire("entries", []);
 let config  = lire("config", { thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null });
-let prix    = lire("prices", null);   // { ts, gomining, bitcoin }  (en CAD)
+let prix    = lire("prices", null);   // { ts, gomining, bitcoin }  (en USD)
 let filtreHist = "all";
 let charts = {};
 
@@ -392,7 +392,7 @@ function fmtDate(iso){
   return d.toLocaleDateString("fr-CA", { day:"2-digit", month:"short" }) + " " +
          d.toLocaleTimeString("fr-CA", { hour:"2-digit", minute:"2-digit" });
 }
-function fmtCAD(n){ return (n>=0?"":"-") + "$" + Math.abs(n).toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtUSD(n){ return (n>=0?"":"-") + "US$" + Math.abs(n).toLocaleString("fr-CA",{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function fmtNum(n, dec=0){ return Number(n||0).toLocaleString("fr-CA",{minimumFractionDigits:dec,maximumFractionDigits:dec}); }
 
 /* ==========================================================================
@@ -405,13 +405,13 @@ async function chargerPrix(force){
     afficherPrix(); return;
   }
   const id = (config.coingeckoId || "gmt-token").trim();
-  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(id)},bitcoin&vs_currencies=cad`;
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(id)},bitcoin&vs_currencies=usd`;
   try{
     const r = await fetch(url);
     if(!r.ok) throw new Error("HTTP " + r.status);
     const j = await r.json();
-    const gmt = j[id] && j[id].cad;
-    const btc = j.bitcoin && j.bitcoin.cad;
+    const gmt = j[id] && j[id].usd;
+    const btc = j.bitcoin && j.bitcoin.usd;
     if(gmt == null || btc == null) throw new Error("prix manquant");
     prix = { ts: maintenant, gomining: gmt, bitcoin: btc };
     ecrire("prices", prix);
@@ -420,7 +420,7 @@ async function chargerPrix(force){
     console.warn("Prix indisponibles:", e.message);
   }
   afficherPrix();
-  // Rafraîchir le dashboard si visible (les conversions CAD en dépendent).
+  // Rafraîchir le dashboard si visible (les conversions USD en dépendent).
   if(!document.getElementById("tab-dashboard").classList.contains("hidden")) renderDashboard();
 }
 
@@ -429,13 +429,13 @@ function afficherPrix(){
   if(!prix){ box.innerHTML = "prix hors-ligne"; return; }
   const age = Math.round((Date.now() - prix.ts)/60000);
   const vieux = (Date.now() - prix.ts) > CACHE_PRIX_MS;
-  box.innerHTML = `GMT <b>${fmtCAD(prix.gomining)}</b><br>BTC <b>${fmtCAD(prix.bitcoin)}</b>` +
+  box.innerHTML = `GMT <b>${fmtUSD(prix.gomining)}</b><br>BTC <b>${fmtUSD(prix.bitcoin)}</b>` +
                   `<br><small${vieux?' style="color:var(--red)"':''}>maj il y a ${age} min</small>`;
 }
 
-// Valeur CAD de sats et de GMT (0 si prix indisponibles).
-function satsEnCAD(sats){ return prix ? (sats / SATS_PAR_BTC) * prix.bitcoin : 0; }
-function gmtEnCAD(gmt){ return prix ? gmt * prix.gomining : 0; }
+// Valeur USD de sats et de GMT (0 si prix indisponibles).
+function satsEnUSD(sats){ return prix ? (sats / SATS_PAR_BTC) * prix.bitcoin : 0; }
+function gmtEnUSD(gmt){ return prix ? gmt * prix.gomining : 0; }
 
 /* ==========================================================================
    NAVIGATION
@@ -610,16 +610,16 @@ function statsCycle(debut){
   const gmtGagnes  = blocs.reduce((s,e)=> s + e.gmtPerso, 0)
                    + payouts.reduce((s,e)=> s + e.gmtRecu, 0);
 
-  const depCAD    = gmtEnCAD(depGmt);
-  const gainsCAD  = satsEnCAD(satsGagnes) + gmtEnCAD(gmtGagnes);
-  const roiCAD    = gainsCAD - depCAD;
+  const depUSD    = gmtEnUSD(depGmt);
+  const gainsUSD  = satsEnUSD(satsGagnes) + gmtEnUSD(gmtGagnes);
+  const roiUSD    = gainsUSD - depUSD;
 
   const nbBlocs   = blocs.length;
   const satsMoy   = nbBlocs ? blocs.reduce((s,e)=>s+e.btcSats,0)/nbBlocs : 0;
   const gmtBlocMoy= nbBlocs ? blocs.reduce((s,e)=>s+e.gmtPerso,0)/nbBlocs : 0;
   const coutGmtParBloc = nbBlocs ? depGmt/nbBlocs : 0;
 
-  return { es, jours, blocs, payouts, depGmt, satsGagnes, gmtGagnes, depCAD, gainsCAD, roiCAD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
+  return { es, jours, blocs, payouts, depGmt, satsGagnes, gmtGagnes, depUSD, gainsUSD, roiUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
 function renderDashboard(){
@@ -630,14 +630,14 @@ function renderDashboard(){
   const debTxt = debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"});
 
   let html = "";
-  if(!prix){ html += `<div class="warn">Prix indisponibles (hors-ligne). Les conversions CAD sont à zéro jusqu'au retour du réseau.</div>`; }
+  if(!prix){ html += `<div class="warn">Prix indisponibles (hors-ligne). Les conversions USD sont à zéro jusqu'au retour du réseau.</div>`; }
 
   html += `<div class="card">
     <h2>Cycle courant — ${debTxt} → ${finTxt}</h2>
     <div class="grid">
-      <div class="stat"><div class="label">GMT dépensés</div><div class="val">${fmtNum(s.depGmt,1)}</div><div class="sub">${fmtCAD(s.depCAD)}</div></div>
-      <div class="stat"><div class="label">Gains (GMT+BTC)</div><div class="val">${fmtCAD(s.gainsCAD)}</div><div class="sub">${fmtNum(s.gmtGagnes,1)} GMT · ${fmtNum(s.satsGagnes)} sats</div></div>
-      <div class="stat"><div class="label">ROI du cycle</div><div class="val ${s.roiCAD>=0?'pos':'neg'}">${fmtCAD(s.roiCAD)}</div><div class="sub">gains − dépenses</div></div>
+      <div class="stat"><div class="label">GMT dépensés</div><div class="val">${fmtNum(s.depGmt,1)}</div><div class="sub">${fmtUSD(s.depUSD)}</div></div>
+      <div class="stat"><div class="label">Gains (GMT+BTC)</div><div class="val">${fmtUSD(s.gainsUSD)}</div><div class="sub">${fmtNum(s.gmtGagnes,1)} GMT · ${fmtNum(s.satsGagnes)} sats</div></div>
+      <div class="stat"><div class="label">ROI du cycle</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}</div><div class="sub">gains − dépenses</div></div>
       <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}</div><div class="sub">ce cycle</div></div>
     </div>
   </div>`;
@@ -669,24 +669,24 @@ function renderDashboard(){
   c.innerHTML = html;
 }
 
-/* EV par multiplicateur : (gains CAD attribués au multiplicateur) / (dépenses attribuées au prorata).
+/* EV par multiplicateur : (gains USD attribués au multiplicateur) / (dépenses attribuées au prorata).
    Approximation : les dépenses GMT totales sont réparties entre les blocs au prorata du nombre de blocs. */
 function renderEV(){
   const blocs = entries.filter(e=>e.type==="bloc");
   if(!blocs.length) return "";
   const depTotaleGmt = entries.filter(e=>e.type==="jour").reduce((s,e)=>s+e.gmtDepenseBot+e.gmtDepenseManuel,0);
-  const depParBlocCAD = blocs.length ? gmtEnCAD(depTotaleGmt)/blocs.length : 0;
+  const depParBlocUSD = blocs.length ? gmtEnUSD(depTotaleGmt)/blocs.length : 0;
 
   let rows = "";
   MULTIS.forEach(mx=>{
     const bs = blocs.filter(b=>b.multiplicateur===mx);
     if(!bs.length) return;
-    const gainsCAD = bs.reduce((s,b)=> s + satsEnCAD(b.btcSats) + gmtEnCAD(b.gmtPerso), 0);
-    const depCAD = depParBlocCAD * bs.length;
-    const ev = depCAD>0 ? gainsCAD/depCAD : 0;
+    const gainsUSD = bs.reduce((s,b)=> s + satsEnUSD(b.btcSats) + gmtEnUSD(b.gmtPerso), 0);
+    const depUSD = depParBlocUSD * bs.length;
+    const ev = depUSD>0 ? gainsUSD/depUSD : 0;
     rows += `<div class="stat"><div class="label">x${mx} · ${bs.length} bloc${bs.length>1?'s':''}</div>
-      <div class="val ${ev>=1?'pos':'neg'}">${depCAD>0?ev.toFixed(2)+"×":"—"}</div>
-      <div class="sub">${fmtCAD(gainsCAD)} gagnés</div></div>`;
+      <div class="val ${ev>=1?'pos':'neg'}">${depUSD>0?ev.toFixed(2)+"×":"—"}</div>
+      <div class="sub">${fmtUSD(gainsUSD)} gagnés</div></div>`;
   });
   return `<div class="card"><h2>EV par multiplicateur (approx.)</h2><div class="grid">${rows}</div>
     <small class="muted">Ratio gains ÷ dépenses attribuées au prorata du nombre de blocs. > 1× = profitable.</small></div>`;
@@ -699,14 +699,14 @@ function renderComparaisonPassif(debutCourant){
   const sP = statsCycle(debutPassif);
   const sC = statsCycle(debutCourant);
   const memeCycle = cleCycle(debutPassif)===cleCycle(debutCourant);
-  const diff = sC.roiCAD - sP.roiCAD;
+  const diff = sC.roiUSD - sP.roiUSD;
   return `<div class="card"><h2>Boosté vs passif de référence</h2>
     <div class="grid">
-      <div class="stat"><div class="label">ROI passif (réf.)</div><div class="val">${fmtCAD(sP.roiCAD)}</div><div class="sub">${debutPassif.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})}</div></div>
-      <div class="stat"><div class="label">ROI cycle courant</div><div class="val">${fmtCAD(sC.roiCAD)}</div></div>
+      <div class="stat"><div class="label">ROI passif (réf.)</div><div class="val">${fmtUSD(sP.roiUSD)}</div><div class="sub">${debutPassif.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})}</div></div>
+      <div class="stat"><div class="label">ROI cycle courant</div><div class="val">${fmtUSD(sC.roiUSD)}</div></div>
     </div>
     ${memeCycle?'<small class="muted">Le cycle passif est le cycle courant.</small>'
-      :`<div class="stat" style="margin-top:10px"><div class="label">Écart vs passif</div><div class="val ${diff>=0?'pos':'neg'}">${fmtCAD(diff)}</div></div>`}
+      :`<div class="stat" style="margin-top:10px"><div class="label">Écart vs passif</div><div class="val ${diff>=0?'pos':'neg'}">${fmtUSD(diff)}</div></div>`}
   </div>`;
 }
 
@@ -736,14 +736,14 @@ function renderGraphiques(){
       plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
 
-  // 2) Ligne : cumul gains vs dépenses (CAD) dans le temps
+  // 2) Ligne : cumul gains vs dépenses (USD) dans le temps
   const tri = [...entries].sort((a,b)=> new Date(a.date)-new Date(b.date));
   let cumG=0, cumD=0;
   const labels=[], serieG=[], serieD=[];
   tri.forEach(e=>{
-    if(e.type==="jour") cumD += gmtEnCAD(e.gmtDepenseBot + e.gmtDepenseManuel);
-    if(e.type==="bloc") cumG += satsEnCAD(e.btcSats) + gmtEnCAD(e.gmtPerso);
-    if(e.type==="payout") cumG += satsEnCAD(e.btcSatsRecu - e.fraisSats) + gmtEnCAD(e.gmtRecu);
+    if(e.type==="jour") cumD += gmtEnUSD(e.gmtDepenseBot + e.gmtDepenseManuel);
+    if(e.type==="bloc") cumG += satsEnUSD(e.btcSats) + gmtEnUSD(e.gmtPerso);
+    if(e.type==="payout") cumG += satsEnUSD(e.btcSatsRecu - e.fraisSats) + gmtEnUSD(e.gmtRecu);
     labels.push(new Date(e.date).toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"}));
     serieG.push(cumG); serieD.push(cumD);
   });
@@ -867,7 +867,7 @@ function statsGlobales(){
     cycles[k] = {
       cycle:k, blocs:s.nbBlocs, depGmt:+s.depGmt.toFixed(2),
       satsGagnes:s.satsGagnes, gmtGagnes:+s.gmtGagnes.toFixed(2),
-      depCAD:+s.depCAD.toFixed(2), gainsCAD:+s.gainsCAD.toFixed(2), roiCAD:+s.roiCAD.toFixed(2),
+      depUSD:+s.depUSD.toFixed(2), gainsUSD:+s.gainsUSD.toFixed(2), roiUSD:+s.roiUSD.toFixed(2),
       satsMoyParBloc:Math.round(s.satsMoy), coutGmtParBloc:+s.coutGmtParBloc.toFixed(2)
     };
   });
