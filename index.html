@@ -230,6 +230,7 @@
   .btnico{width:20px;height:20px;flex:none;}
   .ico{vertical-align:-3px;flex:none;}
   .spico{flex:none;vertical-align:-8px;}
+  .spellicon{flex:none;display:inline-flex;}
   .page-title{display:none;font-size:1.55rem;font-weight:750;letter-spacing:-.015em;color:var(--text);}
   .kicker{display:flex;align-items:center;gap:9px;}
   .kicker::before{content:"";width:14px;height:2px;border-radius:2px;background:var(--accent);flex:none;opacity:.9;}
@@ -395,12 +396,12 @@
 
     <div class="card">
       <span class="kicker">Les sorts — par efficacité</span>
-      <div class="spell-row"><svg class="spico" viewBox="0 0 24 24" width="26" height="26"><g fill="#ff8a4c" fill-opacity=".16" stroke="#ff8a4c" stroke-width="1.5"><circle cx="12" cy="12" r="10"/></g><g fill="none" stroke="#ff8a4c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6.5 6.5) scale(.46)"><path d="M12 13l4.5-4.5"/><path d="M4 18a9 9 0 1 1 16 0"/></g></svg><div style="flex:1;min-width:0"><div class="spell-line"><b>Power-up</b><span class="chip-price">21,31 GMT</span><span class="tag-accent">pilier</span></div><div class="tl-detail" style="margin-top:3px">×100 PPS · le plus efficace, cast tôt</div></div><span class="spell-eff pos">1,69 M<small>pts/jeton</small></span></div>
-      <div class="spell-row"><svg class="spico" viewBox="0 0 24 24" width="26" height="26"><g fill="#40cf87" fill-opacity=".16" stroke="#40cf87" stroke-width="1.5"><path d="M7 3H17L22 12 17 21H7L2 12Z"/></g><g fill="none" stroke="#40cf87" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6.5 6.5) scale(.46)"><path d="M6 2h12M6 22h12M8 2c0 4 8 6 8 10s-8 6-8 10M16 2c0 4-8 6-8 10s8 6 8 10"/></g></svg><div style="flex:1;min-width:0"><div class="spell-line"><b>Echo</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+ croissant /2 min · rounds longs</div></div><span class="spell-eff pos">1,38 M<small>pts/jeton</small></span></div>
-      <div class="spell-row"><svg class="spico" viewBox="0 0 24 24" width="26" height="26"><g fill="#40cf87" fill-opacity=".16" stroke="#40cf87" stroke-width="1.5"><path d="M7 3H17L22 12 17 21H7L2 12Z"/></g><g fill="none" stroke="#40cf87" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6.5 6.5) scale(.46)"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></g></svg><div style="flex:1;min-width:0"><div class="spell-line"><b>Power boost</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+2K/s · régulier, plus lisse qu'Echo</div></div><span class="spell-eff">1,20 M<small>pts/jeton</small></span></div>
-      <div class="spell-row"><svg class="spico" viewBox="0 0 24 24" width="26" height="26"><g fill="#5b9bf2" fill-opacity=".16" stroke="#5b9bf2" stroke-width="1.5"><circle cx="12" cy="12" r="10"/></g><g fill="none" stroke="#5b9bf2" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6.5 6.5) scale(.46)"><path d="M12 22s7-3.5 7-9V5l-7-3-7 3v8c0 5.5 7 9 7 9z"/></g></svg><div style="flex:1;min-width:0"><div class="spell-line"><b>Clan power-up</b><span class="chip-price">0,30 GMT</span></div><div class="tl-detail" style="margin-top:3px">×2 ta base · ≈ Power boost (solo)</div></div><span class="spell-eff">1,22 M<small>pts/jeton</small></span></div>
-      <div class="spell-row"><svg class="spico" viewBox="0 0 24 24" width="26" height="26"><g fill="#40cf87" fill-opacity=".16" stroke="#40cf87" stroke-width="1.5"><path d="M7 3H17L22 12 17 21H7L2 12Z"/></g><g fill="none" stroke="#40cf87" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6.5 6.5) scale(.46)"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></g></svg><div style="flex:1;min-width:0"><div class="spell-line"><b>Instant</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+1M · plancher garanti</div></div><span class="spell-eff">1,00 M<small>pts/jeton</small></span></div>
-      <div class="spell-row"><svg class="spico" viewBox="0 0 24 24" width="26" height="26"><g fill="#40cf87" fill-opacity=".16" stroke="#40cf87" stroke-width="1.5"><path d="M7 3H17L22 12 17 21H7L2 12Z"/></g><g fill="none" stroke="#40cf87" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6.5 6.5) scale(.46)"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></g></svg><div style="flex:1;min-width:0"><div class="spell-line"><b>Focus</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+2,5M sur 5 min · rounds courts</div></div><span class="spell-eff neg">2,5 M<small>si ≤5 min, sinon 0</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Power-up"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Power-up</b><span class="chip-price">21,31 GMT</span><span class="tag-accent">pilier</span></div><div class="tl-detail" style="margin-top:3px">×100 PPS · le plus efficace, cast tôt</div></div><span class="spell-eff pos">1,69 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Echo"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Echo</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+ croissant /2 min · rounds longs</div></div><span class="spell-eff pos">1,38 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Power boost"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Power boost</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+2K/s · régulier, plus lisse qu'Echo</div></div><span class="spell-eff">1,20 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Clan power-up"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Clan power-up</b><span class="chip-price">0,30 GMT</span></div><div class="tl-detail" style="margin-top:3px">×2 ta base · ≈ Power boost (solo)</div></div><span class="spell-eff">1,22 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Instant"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Instant</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+1M · plancher garanti</div></div><span class="spell-eff">1,00 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Focus"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Focus</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+2,5M sur 5 min · rounds courts</div></div><span class="spell-eff neg">2,5 M<small>si ≤5 min, sinon 0</small></span></div>
       <small class="muted" style="display:block;margin-top:10px">Prix fixes 1/10/100 (base/Super/Ultra) — le palier ne change pas l'efficacité. Aucune synergie : un « combo » = Power-up d'abord, puis Echo/Power boost.</small>
     </div>
 
@@ -566,7 +567,7 @@ const SPELL_ICONS = {
   instant: {c:'#40cf87', shape:'hex',    sym:'<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/>'},
   echo:    {c:'#40cf87', shape:'hex',    sym:'<path d="M6 2h12M6 22h12M8 2c0 4 8 6 8 10s-8 6-8 10M16 2c0 4-8 6-8 10s8 6 8 10"/>'},
   focus:   {c:'#40cf87', shape:'hex',    sym:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>'},
-  powerup: {c:'#ff8a4c', shape:'circle', sym:'<path d="M12 13l4.5-4.5"/><path d="M4 18a9 9 0 1 1 16 0"/>'},
+  powerup: {c:'#ff8a4c', shape:'circle', sym:'<path d="M10.83 16.38a6.08 6.08 0 0 1-8.62-7l5.41 1.45a6.08 6.08 0 0 1 7-8.62l-1.45 5.41a6.08 6.08 0 0 1 8.62 7l-5.41-1.45a6.08 6.08 0 0 1-7 8.62l1.45-5.41Z"/><circle cx="12" cy="12" r="1"/>'},
   clan:    {c:'#5b9bf2', shape:'circle', sym:'<path d="M12 22s7-3.5 7-9V5l-7-3-7 3v8c0 5.5 7 9 7 9z"/>'}
 };
 function spellKey(name){
@@ -582,10 +583,10 @@ function spellKey(name){
 function spellIcon(name, size){
   const F = SPELL_ICONS[spellKey(name)]; if(!F) return '';
   size = size||26;
-  const bg = F.shape==='hex' ? '<path d="M7 3H17L22 12 17 21H7L2 12Z"/>' : '<circle cx="12" cy="12" r="10"/>';
+  const bg = F.shape==='hex' ? '<path d="M7 2.5H17L22.3 12 17 21.5H7L1.7 12Z"/>' : '<circle cx="12" cy="12" r="10.7"/>';
   return `<svg class="spico" viewBox="0 0 24 24" width="${size}" height="${size}">
-    <g fill="${F.c}" fill-opacity=".16" stroke="${F.c}" stroke-width="1.5">${bg}</g>
-    <g fill="none" stroke="${F.c}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6.5 6.5) scale(.46)">${F.sym}</g>
+    <g fill="${F.c}" stroke="rgba(0,0,0,.28)" stroke-width="1">${bg}</g>
+    <g fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6 6) scale(.5)">${F.sym}</g>
   </svg>`;
 }
 const SATS_PAR_BTC = 100000000;             // 1 BTC = 100 000 000 sats
@@ -1666,6 +1667,7 @@ function init(){
   majLastExport();
   renderRappelService();
   const pt0=document.getElementById("pageTitle"); if(pt0) pt0.textContent="Saisie rapide";
+  document.querySelectorAll(".spellicon[data-spell]").forEach(el=> el.innerHTML = spellIcon(el.dataset.spell, 26));
   // Enregistrement du service worker (offline / installation iPhone).
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("sw.js").catch(e=>console.warn("SW non enregistré:", e.message));
