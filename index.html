@@ -194,7 +194,7 @@
     /* Graphiques : 2 par rangée, la courbe du solde en pleine largeur */
     #tab-graphiques{ display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; align-items:start; }
     #tab-graphiques .card{ margin-bottom:0; }
-    #tab-graphiques .card:nth-child(3){ grid-column:1 / -1; }
+    #tab-graphiques .card.chart-wide{ grid-column:1 / -1; }
     .chart-wrap{ height:260px; }
 
     /* Saisie : les 3 boutons d'action côte à côte */
@@ -239,9 +239,11 @@
 
   <!-- ======================= ONGLET : GRAPHIQUES ======================= -->
   <section id="tab-graphiques" class="hidden">
+    <div class="card"><h2>Blocs gagnés par jour</h2><div class="chart-wrap"><canvas id="chBlocsJour"></canvas></div></div>
+    <div class="card"><h2>Blocs gagnés par cycle</h2><div class="chart-wrap"><canvas id="chBlocsCycle"></canvas></div></div>
     <div class="card"><h2>Blocs par multiplicateur</h2><div class="chart-wrap"><canvas id="chMult"></canvas></div></div>
-    <div class="card"><h2>Cumul gains vs dépenses (USD)</h2><div class="chart-wrap"><canvas id="chCumul"></canvas></div></div>
     <div class="card"><h2>Solde du Spell Bot</h2><div class="chart-wrap"><canvas id="chBot"></canvas></div></div>
+    <div class="card chart-wide"><h2>Cumul gains vs dépenses (USD)</h2><div class="chart-wrap"><canvas id="chCumul"></canvas></div></div>
   </section>
 
   <!-- ======================= ONGLET : HISTORIQUE ======================= -->
@@ -938,6 +940,36 @@ function renderGraphiques(){
       datasets:[{ label:"Solde bot (GMT)", data: jours.map(e=>e.soldeBot),
         borderColor:"#3b82f6", backgroundColor:"rgba(59,130,246,.12)", fill:true, tension:.25, pointRadius:2 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:false}} }
+  });
+
+  // 4) Barres : blocs gagnés par jour
+  const parJour = {};
+  entries.filter(e=>e.type==="bloc").forEach(e=>{
+    const k = minuit(e.date).toISOString().slice(0,10);
+    parJour[k] = (parJour[k]||0) + 1;
+  });
+  const joursTri = Object.keys(parJour).sort();
+  detruireChart("blocsJour");
+  charts.blocsJour = new Chart(document.getElementById("chBlocsJour"), {
+    type:"bar",
+    data:{ labels: joursTri.map(k=> new Date(k+"T00:00").toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"})),
+      datasets:[{ label:"Blocs", data: joursTri.map(k=>parJour[k]), backgroundColor:"#22c55e", borderRadius:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
+  });
+
+  // 5) Barres : blocs gagnés par cycle (mardi -> lundi)
+  const parCycleB = {};
+  entries.filter(e=>e.type==="bloc").forEach(e=>{
+    const k = cleCycle(e.date);
+    parCycleB[k] = (parCycleB[k]||0) + 1;
+  });
+  const cyclesTri = Object.keys(parCycleB).sort();
+  detruireChart("blocsCycle");
+  charts.blocsCycle = new Chart(document.getElementById("chBlocsCycle"), {
+    type:"bar",
+    data:{ labels: cyclesTri.map(k=> "Sem. " + new Date(k+"T00:00").toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"})),
+      datasets:[{ label:"Blocs", data: cyclesTri.map(k=>parCycleB[k]), backgroundColor:"#f0b90b", borderRadius:6 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
 }
 
