@@ -1257,10 +1257,13 @@ function renderGraphiques(){
   detruireChart("roiCycle");
   charts.roiCycle = new Chart(document.getElementById("chRoiCycle"), {
     type:"bar",
-    data:{ labels: labelsCycle, datasets:[{ label:"ROI", data: roiVals,
-      backgroundColor: roiVals.map(v=> v>=1 ? "#22c55e" : "#ef4444"), borderRadius:6 }] },
+    data:{ labels: labelsCycle, datasets:[
+      { label:"ROI", data: roiVals, order:2,
+        backgroundColor: roiVals.map(v=> v>=1 ? "#22c55e" : "#ef4444"), borderRadius:6 },
+      { type:"line", label:"Seuil 1× (rentable)", data: roiVals.map(()=>1), order:1,
+        borderColor:"#9aa3b2", borderDash:[5,4], borderWidth:1.5, pointRadius:0 } ] },
     options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}, tooltip:{callbacks:{label:(ctx)=> ctx.parsed.y.toFixed(2)+"× (seuil 1.00×)"}}},
+      plugins:{legend:{display:true, labels:{boxWidth:12}}, tooltip:{callbacks:{label:(ctx)=> ctx.datasetIndex===0 ? ctx.parsed.y.toFixed(2)+"×" : "seuil 1.00×"}}},
       scales:{y:{beginAtZero:true}} }
   });
 
@@ -1314,7 +1317,7 @@ function renderHistorique(){
     const roi = st.depUSD>0 ? (st.gainsUSD/st.depUSD).toFixed(2)+"×" : "—";
     const entete = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:16px 2px 8px;padding-bottom:6px;border-bottom:1px solid var(--border)">
       <b style="font-size:.9rem">${debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})} → ${fin.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})}</b>
-      <span class="muted" style="font-size:.76rem">${st.nbBlocs} bloc${st.nbBlocs>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi}</span>
+      <span style="font-size:.76rem"><span class="muted">${st.nbBlocs} bloc${st.nbBlocs>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi} · net </span><span class="${st.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(st.netAbsoluUSD)}</span></span>
     </div>`;
     const items = groupes[k].map(e=> `<div class="item">
       <div class="top">
@@ -1369,9 +1372,11 @@ function remplirConfig(){
   const cycleCourant = cleCycle(new Date());
   document.getElementById("cfgPassif").checked = config.passiveCycleStart===cycleCourant;
   const info = document.getElementById("passifInfo");
-  info.textContent = config.passiveCycleStart
+  const nbPassifs = classerCycles().passifs.length;
+  info.innerHTML = (config.passiveCycleStart
     ? "Cycle passif de référence : " + dateDeCle(config.passiveCycleStart).toLocaleDateString("fr-CA",{day:"2-digit",month:"long",year:"numeric"})
-    : "Aucun cycle passif défini.";
+    : "Aucun cycle passif marqué manuellement.")
+    + `<br><b>${nbPassifs}</b> cycle(s) passif(s) détecté(s) automatiquement (dépense GMT ≈ 0) — le verdict s'appuie déjà dessus.`;
 }
 function sauverConfig(){
   config.thTotal = parseFloat(document.getElementById("cfgTh").value)||0;
