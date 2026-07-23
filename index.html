@@ -1167,8 +1167,21 @@ function renderHistorique(){
   const es = [...entries].sort((a,b)=> new Date(b.date)-new Date(a.date))
              .filter(e=> filtreHist==="all" || e.type===filtreHist);
   if(!es.length){ list.innerHTML = '<div class="empty">Aucune entrée.</div>'; return; }
-  list.innerHTML = es.map(e=>{
-    return `<div class="item">
+
+  // Regrouper par cycle (mardi→lundi), du plus récent au plus ancien
+  const groupes = {};
+  es.forEach(e=>{ const k=cleCycle(e.date); (groupes[k]=groupes[k]||[]).push(e); });
+  const keys = Object.keys(groupes).sort().reverse();
+
+  list.innerHTML = keys.map(k=>{
+    const debut = dateDeCle(k), fin = finCycle(debut);
+    const st = statsCycle(debut);
+    const roi = st.depUSD>0 ? (st.gainsUSD/st.depUSD).toFixed(2)+"×" : "—";
+    const entete = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:16px 2px 8px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+      <b style="font-size:.9rem">${debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})} → ${fin.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})}</b>
+      <span class="muted" style="font-size:.76rem">${st.nbBlocs} bloc${st.nbBlocs>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi}</span>
+    </div>`;
+    const items = groupes[k].map(e=> `<div class="item">
       <div class="top">
         <span class="badge ${e.type}">${e.type==="jour"?"📅 Journée":e.type==="bloc"?"🎉 Bloc x"+e.multiplicateur:e.type==="payout"?"💰 Payout":"🤖 Config bot"}</span>
         <span class="date">${fmtDate(e.date)}</span>
@@ -1178,7 +1191,8 @@ function renderHistorique(){
         <button onclick="ouvrirForm('${e.type}','${e.id}')">✏️ Modifier</button>
         <button onclick="supprimer('${e.id}')">🗑️ Supprimer</button>
       </div>
-    </div>`;
+    </div>`).join("");
+    return entete + items;
   }).join("");
 }
 function detailEntree(e){
