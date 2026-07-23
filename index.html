@@ -162,6 +162,42 @@
   table.cyc tbody tr:last-child td{border-bottom:none;}
   table.cyc tbody tr:hover{background:var(--surface2);}
 
+  /* ============ REFONTE : hero verdict, strips, hiérarchie KPI ============ */
+  .kicker{font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700;display:block;margin-bottom:6px;}
+  .card.hero{padding:22px;border-left:4px solid var(--accent);}
+  .hero.pos{border-left-color:var(--green);}
+  .hero.neg{border-left-color:var(--red);}
+  .hero-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:center;}
+  .verdict-label{font-size:1.4rem;font-weight:800;}
+  .verdict-big{font-size:2.4rem;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;}
+  .verdict-big.pos{color:var(--green);} .verdict-big.neg{color:var(--red);}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:8px;}
+  .cmp{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+  .cmp-row{display:flex;align-items:center;gap:10px;font-size:.78rem;}
+  .cmp-row .cl{width:56px;color:var(--muted);}
+  .cmp-track{flex:1;height:14px;background:var(--surface2);border-radius:7px;overflow:hidden;}
+  .cmp-fill{display:block;height:100%;border-radius:7px;}
+  .cmp-fill.passif{background:var(--muted);}
+  .cmp-fill.booste{background:var(--accent);}
+  .hero.pos .cmp-fill.booste{background:var(--green);}
+  .cmp-val{width:88px;text-align:right;font-variant-numeric:tabular-nums;}
+  .progress{height:8px;background:var(--surface2);border-radius:5px;overflow:hidden;margin-top:8px;}
+  .progress>span{display:block;height:100%;background:var(--accent);}
+  .progress.hot>span{background:var(--red);}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:.74rem;padding:4px 10px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);}
+  .chip.ok{color:var(--green);} .chip.todo{color:var(--red);}
+  .two-col{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-bottom:12px;}
+  .two-col>.card{margin-bottom:0;}
+  .ev-row{display:flex;align-items:center;gap:10px;padding:6px 0;}
+  .ev-row .em{width:36px;font-weight:700;color:var(--text);}
+  details.detail{margin-bottom:12px;}
+  details.detail>summary{cursor:pointer;list-style:none;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-size:.8rem;font-weight:650;padding:10px 2px;}
+  details.detail>summary::-webkit-details-marker{display:none;}
+  details.detail>summary::before{content:"▸ ";}
+  details.detail[open]>summary::before{content:"▾ ";}
+  details.detail .val{font-size:1.05rem;}
+  @media (max-width:900px){ .hero-grid,.two-col{grid-template-columns:1fr;} }
+
   /* ============ OPTIMISATION DESKTOP / MACBOOK (≥ 861px) ============
      Bloc additif : sur grand écran on abandonne le modèle mobile
      (barre du bas, colonne étroite) pour une vraie disposition d'app. */
@@ -932,12 +968,16 @@ function renderObservations(){
   if(!config.passiveCycleStart)
     obs.push({t:'info', m:"Aucun cycle passif de référence marqué (Réglages) — indispensable pour mesurer l'effet du bot."});
 
-  if(!obs.length) return "";
+  // Trier par priorité (warn > good > info) et garder les 4 plus importantes
+  const rang = t=> t==='warn'?0:t==='good'?1:2;
+  obs.sort((a,b)=> rang(a.t)-rang(b.t));
+  const top = obs.slice(0,4);
+  if(!top.length) return "";
   const icon = t=> t==='good'?'✅':t==='warn'?'⚠️':'💡';
   const col  = t=> t==='good'?'var(--green)':t==='warn'?'var(--red)':'var(--muted)';
-  return `<div class="card"><h2>Observations</h2>
-    <ul style="list-style:none;padding:0;margin:6px 0 0;font-size:.92rem">
-      ${obs.map((o,i)=>`<li style="padding:7px 0;${i<obs.length-1?'border-bottom:1px solid var(--border)':''}"><span style="color:${col(o.t)}">${icon(o.t)}</span> ${o.m}</li>`).join("")}
+  return `<div class="card"><span class="kicker">Observations</span>
+    <ul style="list-style:none;padding:0;margin:2px 0 0;font-size:.9rem">
+      ${top.map((o,i)=>`<li style="padding:7px 0;${i<top.length-1?'border-bottom:1px solid var(--border)':''}"><span style="color:${col(o.t)}">${icon(o.t)}</span> ${o.m}</li>`).join("")}
     </ul></div>`;
 }
 
@@ -975,114 +1015,149 @@ function renderDashboard(){
   let html = "";
   if(!prix){ html += `<div class="warn">Prix indisponibles (hors-ligne). Les conversions USD sont à zéro jusqu'au retour du réseau.</div>`; }
 
-  html += renderApercu();
-  html += renderCadence();
-  html += renderObservations();
-
-  html += `<div class="card">
-    <h2>Cycle courant — ${debTxt} → ${finTxt}${prev?' <small class="muted" style="text-transform:none;letter-spacing:0">· ▲▼ vs cycle précédent</small>':''}</h2>
-    <div class="grid">
-      <div class="stat"><div class="label">GMT dépensés</div><div class="val">${fmtNum(s.depGmt,1)}</div><div class="sub">${fmtUSD(s.depUSD)}</div></div>
-      <div class="stat"><div class="label">Gains (GMT+BTC)</div><div class="val">${fmtUSD(s.gainsUSD)}${prev?deltaBadge(s.gainsUSD,prev.gainsUSD):''}</div><div class="sub">${fmtNum(s.gmtGagnes,1)} GMT · ${fmtNum(s.satsGagnes)} sats</div></div>
-      <div class="stat"><div class="label" title="Gains − dépenses de spells, hors OPEX. La métrique pour juger le bot vs passif.">ROI spells du cycle ⓘ</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}${prev?deltaBadge(s.roiUSD,prev.roiUSD):''}</div><div class="sub">gains − dépenses (hors OPEX)</div></div>
-      <div class="stat"><div class="label" title="Gains − dépenses − OPEX (élec./maintenance). « Est-ce que je gagne de l'argent tout court ».">Net absolu ⓘ</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}${prev?deltaBadge(s.netAbsoluUSD,prev.netAbsoluUSD):''}</div><div class="sub">après OPEX (${fmtNum(s.opexGmt,0)} GMT)</div></div>
-      <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}${prev?deltaBadge(s.nbBlocs,prev.nbBlocs):''}</div><div class="sub">ce cycle</div></div>
-    </div>
-    ${!s.aPayout && s.nbBlocs ? '<small class="muted">⏳ Gains provisoires — estimations des blocs (montants approximatifs du jeu). Le vrai total sera figé au payout du mardi.</small>' : ''}
-    ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats <b>estimés</b> (blocs) vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} sats <b>réels</b> (payout) — normal que ça diffère, le ROI se base sur le payout.</small>` : ''}
-  </div>`;
-
-  html += `<div class="card">
-    <h2>Rendement des blocs (cycle)</h2>
-    <div class="grid">
-      <div class="stat"><div class="label">Sats moyens / bloc</div><div class="val">${fmtNum(s.satsMoy)}</div></div>
-      <div class="stat"><div class="label">GMT perso moyen / bloc</div><div class="val">${fmtNum(s.gmtBlocMoy,2)}</div></div>
-      <div class="stat"><div class="label" title="Dépenses GMT du cycle ÷ nombre de blocs gagnés.">Coût GMT / bloc ⓘ</div><div class="val">${fmtNum(s.coutGmtParBloc,1)}</div><div class="sub">dépenses ÷ blocs</div></div>
-      <div class="stat"><div class="label">Budget bot restant</div><div class="val">${fmtNum((config.budgetBotCycle||0) - s.jours.reduce((a,e)=>a+e.gmtDepenseBot,0),1)}</div><div class="sub">GMT sur ${fmtNum(config.budgetBotCycle||0)}</div></div>
-    </div>
-  </div>`;
-
-  // Tableau récap de tous les cycles
-  html += renderTableauCycles();
-
-  // Streak
-  const { streak, faitAuj } = calcStreakService();
-  html += `<div class="card"><h2>Service</h2>
-    <div class="stat" style="background:transparent;padding:0">
-      <div class="val">🔥 ${streak} jour${streak>1?'s':''}</div>
-      <div class="sub ${faitAuj?'streak-ok':'streak-todo'}">${faitAuj?"Fait aujourd'hui ✅":"⚠️ Pas encore fait aujourd'hui"}</div>
-    </div></div>`;
-
-  // EV par multiplicateur (approximation prorata) — sur tout l'historique
-  html += renderEV();
-
-  // Répartition des blocs par multiplicateur (distribution)
-  html += renderRepartitionMult();
-
-  // Comparaison passif vs boosté
-  html += renderComparaisonPassif(debut);
+  html += renderVerdict();                                                                 // HERO — le verdict
+  html += renderStripCycle(s, prev);                                                       // CE CYCLE
+  html += `<div class="two-col">${renderParMultiplicateur()}${renderObservations()}</div>`; // POURQUOI (2 colonnes)
+  html += renderTableauCycles();                                                           // TENDANCE
+  html += `<details class="detail"><summary>Détail &amp; analyse long-terme</summary>
+    ${renderCadence()}${renderRendement(s)}${renderService()}${renderApercu()}</details>`;  // DÉTAIL (replié)
 
   c.innerHTML = html;
 }
 
-/* EV par multiplicateur = gains ÷ dépenses, PAR multiplicateur.
-   Si des entrées "Config bot" existent, on utilise le GMT RÉELLEMENT dépensé par
-   multiplicateur (pertes incluses) → EV fiable. Sinon on retombe sur une approximation
-   au prorata du nombre de blocs (et on le signale clairement). */
-function renderEV(){
-  const blocs = entries.filter(e=>e.type==="bloc");
-  const cfgs  = entries.filter(e=>e.type==="botcfg");
-  if(!blocs.length && !cfgs.length) return "";
-
-  // Dépense réelle + spells par multiplicateur, agrégés depuis les Config bot
-  const depReelle = {}, spellsMult = {};
-  cfgs.forEach(e=> (e.setups||[]).forEach(s=>{
-    depReelle[s.mult] = (depReelle[s.mult]||0) + (s.gmtDepense||0);
-    spellsMult[s.mult] = spellsMult[s.mult] || new Set();
-    (s.spells||[]).forEach(sp=> spellsMult[s.mult].add(sp));
-  }));
-  const aReel = Object.keys(depReelle).length>0;
-
-  // Fallback prorata si aucune Config bot n'a été saisie
-  const depTotaleGmt = entries.filter(e=>e.type==="jour").reduce((s,e)=>s+e.gmtDepenseBot+e.gmtDepenseManuel,0);
-  const depParBlocUSD = blocs.length ? gmtEnUSD(depTotaleGmt)/blocs.length : 0;
-
-  let rows = "";
-  MULTIS.forEach(mx=>{
-    const bs = blocs.filter(b=>b.multiplicateur===mx);
-    const depGmtMx = depReelle[mx]||0;
-    if(!bs.length && !depGmtMx) return;              // rien pour ce palier
-    const gainsUSD = bs.reduce((s,b)=> s + satsEnUSD(b.btcSats) + gmtEnUSD(b.gmtPerso), 0);
-    const depUSD = aReel ? gmtEnUSD(depGmtMx) : depParBlocUSD * bs.length;
-    const ev = depUSD>0 ? gainsUSD/depUSD : 0;
-    const sp = spellsMult[mx] ? [...spellsMult[mx]].join("/") : "";
-    rows += `<div class="stat"><div class="label">x${mx} · ${bs.length} bloc${bs.length>1?'s':''}${sp?" · "+sp:""}</div>
-      <div class="val ${ev>=1?'pos':'neg'}">${depUSD>0?ev.toFixed(2)+"×":"—"}</div>
-      <div class="sub">${fmtUSD(gainsUSD)} gagnés${aReel?` · ${fmtNum(depGmtMx,1)} GMT dép.`:""}</div></div>`;
-  });
-  const note = aReel
-    ? "Basé sur le GMT réellement dépensé par multiplicateur (Config bot), pertes incluses. > 1× = profitable."
-    : "⚠️ Approximation au prorata des blocs (aucune Config bot saisie). Ajoute une « Config bot » pour une EV fiable.";
-  return `<div class="card"><h2 title="Gains ÷ GMT dépensé, par multiplicateur. > 1× = profitable.">EV par multiplicateur ⓘ</h2><div class="grid">${rows}</div>
-    <small class="muted">${note}</small></div>`;
+/* Strip "CE CYCLE" : 4 tuiles primaires + chip streak. Budget en barre de progression. */
+function renderStripCycle(s, prev){
+  const { streak, faitAuj } = calcStreakService();
+  const depBot = s.jours.reduce((a,e)=>a+e.gmtDepenseBot,0);
+  const budget = config.budgetBotCycle||0;
+  const pct = budget>0 ? Math.min(100, depBot/budget*100) : 0;
+  const reste = budget - depBot;
+  return `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
+      <span class="kicker" style="margin:0">Ce cycle</span>
+      <span class="chip ${faitAuj?'ok':'todo'}">🔥 ${streak} j · ${faitAuj?'service ✅':'service ⚠️'}</span>
+    </div>
+    <div class="grid strip-4">
+      <div class="stat"><div class="label" title="Gains − dépenses de spells, hors OPEX.">ROI spells ⓘ</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}${prev?deltaBadge(s.roiUSD,prev.roiUSD):''}</div><div class="sub">${fmtNum(s.depGmt,0)} GMT dépensés</div></div>
+      <div class="stat"><div class="label" title="Gains − dépenses − OPEX.">Net absolu ⓘ</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}${prev?deltaBadge(s.netAbsoluUSD,prev.netAbsoluUSD):''}</div><div class="sub">après OPEX</div></div>
+      <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}${prev?deltaBadge(s.nbBlocs,prev.nbBlocs):''}</div><div class="sub">${fmtUSD(s.gainsUSD)} gagnés</div></div>
+      <div class="stat"><div class="label">Budget bot</div><div class="val">${fmtNum(reste,0)}</div><div class="sub">GMT restants / ${fmtNum(budget,0)}</div><div class="progress ${pct>90?'hot':''}"><span style="width:${pct.toFixed(0)}%"></span></div></div>
+    </div>
+    ${!s.aPayout && s.nbBlocs ? '<small class="muted">⏳ Gains provisoires (estimations des blocs) — figés au payout du mardi.</small>' : ''}
+    ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats estimés vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} réels (payout) — le ROI se base sur le payout.</small>` : ''}
+  </div>`;
 }
 
-/* Comparaison cycle passif de référence vs cycle courant. */
-function renderComparaisonPassif(debutCourant){
-  if(!config.passiveCycleStart) return "";
-  const debutPassif = dateDeCle(config.passiveCycleStart);
-  const sP = statsCycle(debutPassif);
-  const sC = statsCycle(debutCourant);
-  const memeCycle = cleCycle(debutPassif)===cleCycle(debutCourant);
-  const diff = sC.roiUSD - sP.roiUSD;
-  return `<div class="card"><h2>Boosté vs passif de référence</h2>
+/* "POURQUOI — par multiplicateur" : fusion EV (profitabilité) + répartition (distribution) en mini-barres.
+   EV = gains ÷ GMT réellement dépensé (Config bot) si dispo, sinon prorata (signalé). */
+function renderParMultiplicateur(){
+  const blocs = entries.filter(e=>e.type==="bloc");
+  const cfgs  = entries.filter(e=>e.type==="botcfg");
+  if(!blocs.length && !cfgs.length) return `<div class="card"><span class="kicker">Par multiplicateur</span><div class="empty">Pas encore de blocs.</div></div>`;
+  const depReelle={}, spellsMult={};
+  cfgs.forEach(e=>(e.setups||[]).forEach(st=>{ depReelle[st.mult]=(depReelle[st.mult]||0)+(st.gmtDepense||0); spellsMult[st.mult]=spellsMult[st.mult]||new Set(); (st.spells||[]).forEach(sp=>spellsMult[st.mult].add(sp)); }));
+  const aReel=Object.keys(depReelle).length>0;
+  const depTot=entries.filter(e=>e.type==="jour").reduce((s,e)=>s+e.gmtDepenseBot+e.gmtDepenseManuel,0);
+  const depParBloc=blocs.length?gmtEnUSD(depTot)/blocs.length:0;
+  const evs=[];
+  MULTIS.forEach(mx=>{
+    const bs=blocs.filter(b=>b.multiplicateur===mx);
+    const depGmtMx=depReelle[mx]||0;
+    if(!bs.length && !depGmtMx) return;
+    const gains=bs.reduce((s,b)=>s+satsEnUSD(b.btcSats)+gmtEnUSD(b.gmtPerso),0);
+    const dep=aReel?gmtEnUSD(depGmtMx):depParBloc*bs.length;
+    evs.push({mx, n:bs.length, pct: blocs.length?bs.length/blocs.length*100:0, ev: dep>0?gains/dep:null, sp: spellsMult[mx]?[...spellsMult[mx]].join("/"):""});
+  });
+  const maxEv=Math.max(1, ...evs.map(e=>e.ev||0));
+  const rows=evs.map(e=>{
+    const evTxt = e.ev==null?'—':e.ev.toFixed(2)+'×';
+    const w = e.ev!=null?Math.min(100, e.ev/maxEv*100):0;
+    const col = e.ev==null?'var(--muted)':(e.ev>=1?'var(--green)':'var(--red)');
+    return `<div class="ev-row"><span class="em">x${e.mx}</span>
+      <span style="flex:1">
+        <span style="display:flex;justify-content:space-between;font-size:.74rem;color:var(--muted)"><span>${e.n} bloc${e.n>1?'s':''} · ${e.pct.toFixed(0)} %${e.sp?' · '+e.sp:''}</span><span style="color:${col};font-weight:700">${evTxt}</span></span>
+        <span class="cmp-track" style="height:8px;margin-top:3px"><span class="cmp-fill" style="width:${w.toFixed(0)}%;background:${col}"></span></span>
+      </span></div>`;
+  }).join("");
+  const note = aReel ? "EV = gains ÷ GMT réellement dépensé (Config bot). > 1× = profitable." : "⚠️ EV approx. au prorata (aucune Config bot). Ajoute-en une pour fiabiliser.";
+  return `<div class="card"><span class="kicker" title="Gains ÷ GMT dépensé, par multiplicateur.">Pourquoi — par multiplicateur ⓘ</span>${rows}<small class="muted">${note}</small></div>`;
+}
+
+/* Rendement des blocs (détail, sans le budget promu dans le strip). */
+function renderRendement(s){
+  return `<div class="card"><span class="kicker">Rendement des blocs (cycle)</span>
     <div class="grid">
-      <div class="stat"><div class="label">ROI passif (réf.)</div><div class="val">${fmtUSD(sP.roiUSD)}</div><div class="sub">${debutPassif.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})}</div></div>
-      <div class="stat"><div class="label">ROI cycle courant</div><div class="val">${fmtUSD(sC.roiUSD)}</div></div>
+      <div class="stat"><div class="label">Sats moyens / bloc</div><div class="val">${fmtNum(s.satsMoy)}</div></div>
+      <div class="stat"><div class="label">GMT perso moyen / bloc</div><div class="val">${fmtNum(s.gmtBlocMoy,2)}</div></div>
+      <div class="stat"><div class="label" title="Dépenses GMT du cycle ÷ blocs gagnés.">Coût GMT / bloc ⓘ</div><div class="val">${fmtNum(s.coutGmtParBloc,1)}</div></div>
+    </div></div>`;
+}
+
+/* Carte Service (détail). */
+function renderService(){
+  const { streak, faitAuj } = calcStreakService();
+  return `<div class="card"><span class="kicker">Service</span>
+    <div class="val">🔥 ${streak} jour${streak>1?'s':''}</div>
+    <div class="sub ${faitAuj?'streak-ok':'streak-todo'}">${faitAuj?"Fait aujourd'hui ✅":"⚠️ Pas encore fait aujourd'hui"}</div></div>`;
+}
+
+/* Classe les cycles COMPLETS en passifs (dépense ≈ 0) vs boostés.
+   Exclut le cycle courant s'il n'a pas encore de payout (gains non figés). */
+function classerCycles(){
+  const cy = tousLesCycles();
+  const cleCour = cleCycle(debutCycle(new Date()));
+  const complets = cy.filter(c2 => c2.key!==cleCour || c2.s.aPayout);
+  return {
+    passifs: complets.filter(c2=> c2.s.depGmt < 0.5),
+    boostes: complets.filter(c2=> c2.s.depGmt >= 0.5),
+  };
+}
+function moyenne(a){ return a.length ? a.reduce((x,y)=>x+y,0)/a.length : 0; }
+// Mini-sparkline SVG (pas Chart.js → marche hors-ligne).
+function sparkline(vals){
+  if(!vals || vals.length<2) return "";
+  const w=140,h=34,p=3, mn=Math.min(...vals), mx=Math.max(...vals), rng=(mx-mn)||1;
+  const pts=vals.map((v,i)=>`${(p+i*(w-2*p)/(vals.length-1)).toFixed(1)},${(h-p-(v-mn)/rng*(h-2*p)).toFixed(1)}`).join(" ");
+  return `<svg width="${w}" height="${h}" style="display:block;margin-top:10px"><polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+/* HERO — LE VERDICT : booster paye-t-il vs passif ? (moyenne des DEUX côtés) */
+function renderVerdict(){
+  const kick = '<span class="kicker">Le verdict</span>';
+  if(!prix) return `<div class="card hero">${kick}<div class="verdict-label">Verdict indisponible</div><div class="sub muted">Prix hors-ligne — reconnecte-toi.</div></div>`;
+  const { passifs, boostes } = classerCycles();
+  if(!passifs.length) return `<div class="card hero">${kick}<div class="verdict-label">Données insuffisantes</div>
+    <p class="muted" style="margin:8px 0 12px;font-size:.9rem">Fais d'abord ≥ 1 cycle <b>passif</b> (bot OFF) : c'est ton point de comparaison. Sans lui, impossible de dire si booster paye.</p>
+    <button class="btn accent" style="width:auto;padding:10px 16px" onclick="switchTab('reglages')">⚙️ Marquer un cycle passif</button></div>`;
+  if(!boostes.length) return `<div class="card hero">${kick}<div class="verdict-label">Active le bot pour comparer</div>
+    <p class="muted" style="margin-top:8px;font-size:.9rem">Tu as ${passifs.length} cycle(s) passif(s) de référence. Lance le Spell Bot un cycle pour voir s'il fait mieux.</p></div>`;
+  const roiP = moyenne(passifs.map(c=>c.s.roiUSD));
+  const roiB = moyenne(boostes.map(c=>c.s.roiUSD));
+  const diff = roiB - roiP;
+  const nul = Math.abs(diff) < 0.01;
+  const cls = nul ? '' : (diff>0?'pos':'neg');
+  const label = nul ? 'Match nul — trop tôt' : (diff>0 ? 'Booster paye 🎉' : 'Reste passif');
+  const dot = diff>0?'var(--green)':diff<0?'var(--red)':'var(--muted)';
+  const uplift = roiP>0 ? diff/roiP*100 : null;
+  const maxv = Math.max(Math.abs(roiP), Math.abs(roiB), 0.01);
+  const conf = boostes.length<4 ? ' · <span style="color:var(--red)">⚠️ confiance faible</span>' : '';
+  return `<div class="card hero ${cls}"><div class="hero-grid">
+    <div>
+      ${kick}
+      <div class="verdict-label"><span class="dot" style="background:${dot}"></span>${label}</div>
+      <p class="muted" style="margin:8px 0 6px;font-size:.9rem">Écart de ROI net moyen (spells) entre tes cycles boostés et passifs.</p>
+      <small class="muted">Basé sur ${boostes.length} cycle(s) boosté(s) vs ${passifs.length} passif(s)${conf}.</small>
     </div>
-    ${memeCycle?'<small class="muted">Le cycle passif est le cycle courant.</small>'
-      :`<div class="stat" style="margin-top:10px"><div class="label">Écart vs passif</div><div class="val ${diff>=0?'pos':'neg'}">${fmtUSD(diff)}</div></div>`}
-  </div>`;
+    <div>
+      <div class="verdict-big ${cls}">${diff>=0?'+':''}${fmtUSD(diff)} <span style="font-size:.95rem;color:var(--muted);font-weight:600">/cycle</span></div>
+      ${uplift!=null?`<div class="sub ${diff>=0?'pos':'neg'}" style="font-size:.85rem">${diff>=0?'+':''}${uplift.toFixed(0)} % vs passif</div>`:''}
+      <div class="cmp">
+        <div class="cmp-row"><span class="cl">Passif</span><span class="cmp-track"><span class="cmp-fill passif" style="width:${(Math.max(0,roiP)/maxv*100).toFixed(0)}%"></span></span><span class="cmp-val">${fmtUSD(roiP)}</span></div>
+        <div class="cmp-row"><span class="cl">Boosté</span><span class="cmp-track"><span class="cmp-fill booste" style="width:${(Math.max(0,roiB)/maxv*100).toFixed(0)}%"></span></span><span class="cmp-val">${fmtUSD(roiB)}</span></div>
+      </div>
+      ${sparkline(boostes.map(c=>c.s.roiUSD))}
+    </div>
+  </div></div>`;
 }
 
 /* ==========================================================================
