@@ -225,6 +225,14 @@
   ::-webkit-scrollbar-track{background:transparent;}
   @media (prefers-reduced-motion: reduce){ *{animation-duration:.001ms!important;transition-duration:.001ms!important;} }
 
+  /* ============ ICÔNES SVG + TITRE DE PAGE + ACCENT DE SECTION ============ */
+  .navico{width:21px;height:21px;flex:none;}
+  .btnico{width:20px;height:20px;flex:none;}
+  .ico{vertical-align:-3px;flex:none;}
+  .page-title{display:none;font-size:1.55rem;font-weight:750;letter-spacing:-.015em;color:var(--text);}
+  .kicker{display:flex;align-items:center;gap:9px;}
+  .kicker::before{content:"";width:14px;height:2px;border-radius:2px;background:var(--accent);flex:none;opacity:.9;}
+
   /* ============ OPTIMISATION DESKTOP / MACBOOK (≥ 861px) ============
      Bloc additif : sur grand écran on abandonne le modèle mobile
      (barre du bas, colonne étroite) pour une vraie disposition d'app. */
@@ -254,9 +262,10 @@
     nav button.active{ background:var(--surface2); color:var(--accent); }
 
     /* Zone de contenu principale, centrée et plus large */
-    .app{ flex:1; max-width:1000px; margin:0 auto; padding:26px 32px 60px; }
-    header h1{ display:none; }               /* titre déjà dans la sidebar */
-    header{ justify-content:flex-end; }
+    .app{ flex:1; max-width:920px; margin:0 auto; padding:24px 34px 64px; }
+    header h1{ display:none; }
+    header{ justify-content:space-between; align-items:flex-end; margin-bottom:22px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+    .page-title{ display:block; }
 
     /* Statistiques : autant de colonnes que la largeur le permet */
     .grid{ grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); }
@@ -288,16 +297,17 @@
 <div class="app">
   <header>
     <h1>⚔️ Miner Wars</h1>
+    <div class="page-title" id="pageTitle"></div>
     <div class="prix" id="prixBox">chargement des prix…</div>
   </header>
 
   <!-- ======================= ONGLET : SAISIE ======================= -->
   <section id="tab-saisie">
     <div class="card">
-      <button class="btn big blue" onclick="ouvrirForm('jour')">📅 Journée</button>
-      <button class="btn big green" onclick="ouvrirForm('bloc')">🎉 Bloc gagné</button>
-      <button class="btn big accent" onclick="ouvrirForm('payout')">💰 Payout mardi</button>
-      <button class="btn big" onclick="ouvrirForm('botcfg')">🤖 Config bot (cycle)</button>
+      <button class="btn big blue" onclick="ouvrirForm('jour')"><svg class="btnico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Journée</button>
+      <button class="btn big green" onclick="ouvrirForm('bloc')"><svg class="btnico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Bloc gagné</button>
+      <button class="btn big accent" onclick="ouvrirForm('payout')"><svg class="btnico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>Payout mardi</button>
+      <button class="btn big" onclick="ouvrirForm('botcfg')"><svg class="btnico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16.01"/><line x1="16" y1="16" x2="16" y2="16.01"/></svg>Config bot</button>
     </div>
     <div class="card" id="rappelService"></div>
   </section>
@@ -481,12 +491,12 @@
 
 <!-- ======================= BARRE D'ONGLETS ======================= -->
 <nav>
-  <button data-tab="saisie" class="active" onclick="switchTab('saisie')"><span class="ic">➕</span>Saisie</button>
-  <button data-tab="dashboard" onclick="switchTab('dashboard')"><span class="ic">📊</span>Dashboard</button>
-  <button data-tab="graphiques" onclick="switchTab('graphiques')"><span class="ic">📈</span>Graphiques</button>
-  <button data-tab="historique" onclick="switchTab('historique')"><span class="ic">🗂️</span>Historique</button>
-  <button data-tab="plan" onclick="switchTab('plan')"><span class="ic">🎯</span>Plan</button>
-  <button data-tab="reglages" onclick="switchTab('reglages')"><span class="ic">⚙️</span>Réglages</button>
+  <button data-tab="saisie" class="active" onclick="switchTab('saisie')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Saisie</button>
+  <button data-tab="dashboard" onclick="switchTab('dashboard')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Dashboard</button>
+  <button data-tab="graphiques" onclick="switchTab('graphiques')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>Graphiques</button>
+  <button data-tab="historique" onclick="switchTab('historique')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Historique</button>
+  <button data-tab="plan" onclick="switchTab('plan')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>Plan</button>
+  <button data-tab="reglages" onclick="switchTab('reglages')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="2" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="22" y2="16"/></svg>Réglages</button>
 </nav>
 
 <!-- ======================= MODALE (formulaires) ======================= -->
@@ -612,6 +622,8 @@ function switchTab(nom){
     document.getElementById("tab-"+t).classList.toggle("hidden", t!==nom);
   });
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b.dataset.tab===nom));
+  const titres={saisie:"Saisie rapide",dashboard:"Tableau de bord",graphiques:"Graphiques",historique:"Historique",plan:"Plan de jeu",reglages:"Réglages"};
+  const pt=document.getElementById("pageTitle"); if(pt) pt.textContent=titres[nom]||"";
   if(nom==="dashboard") renderDashboard();
   if(nom==="graphiques") renderGraphiques();
   if(nom==="historique") renderHistorique();
@@ -1567,6 +1579,7 @@ function init(){
   chargerPrix(false);
   majLastExport();
   renderRappelService();
+  const pt0=document.getElementById("pageTitle"); if(pt0) pt0.textContent="Saisie rapide";
   // Enregistrement du service worker (offline / installation iPhone).
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("sw.js").catch(e=>console.warn("SW non enregistré:", e.message));
