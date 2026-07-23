@@ -819,6 +819,23 @@ function renderApercu(){
   </div>`;
 }
 
+// Répartition des blocs gagnés par multiplicateur (distribution + moyennes).
+function renderRepartitionMult(){
+  const blocs = entries.filter(e=>e.type==="bloc");
+  if(!blocs.length) return "";
+  const rows = MULTIS.map(mx=>{
+    const bs = blocs.filter(b=>b.multiplicateur===mx);
+    if(!bs.length) return "";
+    const satsTot = bs.reduce((a,b)=>a+b.btcSats,0);
+    const gmtMoy = bs.reduce((a,b)=>a+b.gmtPerso,0)/bs.length;
+    return `<tr><td>x${mx}</td><td>${bs.length}</td><td>${(bs.length/blocs.length*100).toFixed(0)} %</td><td>${fmtNum(satsTot/bs.length)}</td><td>${fmtNum(satsTot)}</td><td>${fmtNum(gmtMoy,2)}</td></tr>`;
+  }).join("");
+  return `<div class="card"><h2>Répartition des blocs par multiplicateur</h2>
+    <div class="table-wrap"><table class="cyc">
+      <thead><tr><th>Multi</th><th>Blocs</th><th>%</th><th>Sats moy</th><th>Sats total</th><th>GMT perso moy</th></tr></thead>
+      <tbody>${rows}</tbody></table></div></div>`;
+}
+
 // Tableau récapitulatif de tous les cycles (tendance dans le temps + vue tableau accessible).
 function renderTableauCycles(){
   const cy = tousLesCycles();
@@ -978,6 +995,9 @@ function renderDashboard(){
 
   // EV par multiplicateur (approximation prorata) — sur tout l'historique
   html += renderEV();
+
+  // Répartition des blocs par multiplicateur (distribution)
+  html += renderRepartitionMult();
 
   // Comparaison passif vs boosté
   html += renderComparaisonPassif(debut);
