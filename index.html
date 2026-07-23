@@ -502,10 +502,10 @@
 
     <div class="card">
       <h2>Export / Import</h2>
-      <button class="btn blue" onclick="copierPourClaude()">📋 Copier pour Claude</button>
+      <button class="btn blue" onclick="copierPourClaude()"><svg class="btnico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copier pour Claude</button>
       <div class="btn-row">
-        <button class="btn ghost" onclick="exportCSV()">⬇️ CSV</button>
-        <button class="btn ghost" onclick="exportJSON()">⬇️ JSON</button>
+        <button class="btn ghost" onclick="exportCSV()">Exporter CSV</button>
+        <button class="btn ghost" onclick="exportJSON()">Exporter JSON</button>
       </div>
       <label>Importer un backup JSON</label>
       <input type="file" id="importFile" accept="application/json" onchange="importJSON(event)" />
@@ -514,7 +514,7 @@
 
     <div class="card">
       <h2>Zone dangereuse</h2>
-      <button class="btn ghost" style="color:var(--red)" onclick="effacerTout()">🗑️ Tout effacer</button>
+      <button class="btn ghost" style="color:var(--red)" onclick="effacerTout()">Tout effacer</button>
     </div>
   </section>
 </div>
@@ -546,6 +546,17 @@
 /* ---------- Constantes ---------- */
 const MULTIS = [1, 2, 4, 8, 16, 32];        // multiplicateurs permis
 const SPELLS = ["Instant", "Power", "Echo", "Focus"]; // familles de spells (Config bot)
+
+// Petites icônes SVG (currentColor) pour remplacer les emojis dans le contenu.
+const ICONS = {
+  flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  warn:'<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13.5"/><line x1="12" y1="17" x2="12" y2="17.01"/>',
+  info:'<circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12" y2="8.01"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
+};
+function ic(n, s){ s=s||16; return `<svg class="ico" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]||''}</svg>`; }
 const SATS_PAR_BTC = 100000000;             // 1 BTC = 100 000 000 sats
 const CACHE_PRIX_MS = 10 * 60 * 1000;       // 10 minutes
 
@@ -687,14 +698,14 @@ function ouvrirForm(type, id){
     html += `</div>`;
     html += champ("Solde du Spell Bot (GMT)", `<input type="number" inputmode="decimal" id="f_solde" value="${e? e.soldeBot : ''}">`);
     html += champ("OPEX du jour (GMT — élec.+maintenance)", `<input type="number" inputmode="decimal" id="f_opex" value="${e? (e.opexQuotidien||'') : (config.opexQuotidien||'')}">`);
-    html += `<div class="field-inline"><input type="checkbox" id="f_service" ${(!e || e.serviceFait)?'checked':''}><label for="f_service">Bouton service fait ✅</label></div>`;
+    html += `<div class="field-inline"><input type="checkbox" id="f_service" ${(!e || e.serviceFait)?'checked':''}><label for="f_service">Service fait aujourd'hui</label></div>`;
   }
   else if(type==="bloc"){
     multChoisi = e ? e.multiplicateur : null;
     html += `<label>Multiplicateur</label><div class="mult-grid" id="multGrid">`;
     MULTIS.forEach(mx=> html += `<button type="button" data-m="${mx}" class="${multChoisi===mx?'sel':''}" onclick="choisirMult(${mx})">x${mx}</button>`);
     html += `</div>`;
-    html += `<small class="muted">💡 Montants <b>approximatifs</b> affichés en jeu — le vrai total est figé au <b>payout du mardi</b>. Saisis l'estimation ; le ROI se recalera sur le payout.</small>`;
+    html += `<small class="muted">${ic('info',13)} Montants <b>approximatifs</b> affichés en jeu — le vrai total est figé au <b>payout du mardi</b>. Saisis l'estimation ; le ROI se recalera sur le payout.</small>`;
     html += champ("Récompense clan estimée (sats)", `<input type="number" inputmode="numeric" id="f_sats" value="${e? e.btcSats : ''}">`);
     html += champ("Bloc perso estimé (GMT)", `<input type="number" inputmode="decimal" id="f_gmtperso" value="${e? e.gmtPerso : ''}">`);
     html += champ("Spells actifs", `<input type="text" id="f_spells" value="${e? escAttr(e.spellsActifs) : ''}">`);
@@ -725,13 +736,13 @@ function ouvrirForm(type, id){
   }
 
   html += champ("Notes", `<textarea id="f_notes">${e? escHtml(e.notes||'') : ''}</textarea>`);
-  html += `<button class="btn accent" style="margin-top:16px" onclick="sauverEntree('${type}')">💾 Enregistrer</button>`;
+  html += `<button class="btn accent" style="margin-top:16px" onclick="sauverEntree('${type}')">Enregistrer</button>`;
   html += `<button class="btn ghost" onclick="fermerForm()">Annuler</button>`;
 
   m.innerHTML = html;
   document.getElementById("modalBg").classList.add("show");
 }
-function titreForm(t){ return t==="jour"?"📅 Journée":t==="bloc"?"🎉 Bloc gagné":t==="payout"?"💰 Payout":"🤖 Config du bot (par cycle)"; }
+function titreForm(t){ return t==="jour"?"Journée":t==="bloc"?"Bloc gagné":t==="payout"?"Payout":"Config du bot (par cycle)"; }
 function champ(label, input){ return `<label>${label}</label>${input}`; }
 function choisirMult(m){
   multChoisi = m;
@@ -804,7 +815,7 @@ function sauverEntree(type){
   else { entries.push(obj); }
   ecrire("entries", entries);
   fermerForm();
-  toast("Enregistré ✅");
+  toast("Enregistré");
   renderRappelService();
 }
 function genId(){ return "e" + Date.now() + Math.floor(Math.random()*1000); }
@@ -838,9 +849,9 @@ function renderRappelService(){
   el.innerHTML = `
     <div class="stat" style="background:transparent;padding:0">
       <div class="label">Streak service</div>
-      <div class="val">🔥 ${streak} jour${streak>1?'s':''}</div>
+      <div class="val">${ic('flame',20)} ${streak} jour${streak>1?'s':''}</div>
       <div class="sub ${faitAuj?'streak-ok':'streak-todo'}">
-        ${faitAuj ? "Service fait aujourd'hui ✅" : "⚠️ Service PAS encore fait aujourd'hui"}
+        ${faitAuj ? ic('check',14)+" Service fait aujourd'hui" : ic('warn',14)+" Service PAS encore fait aujourd'hui"}
       </div>
     </div>`;
 }
@@ -1042,7 +1053,7 @@ function renderObservations(){
   obs.sort((a,b)=> rang(a.t)-rang(b.t));
   const top = obs.slice(0,4);
   if(!top.length) return "";
-  const icon = t=> t==='good'?'✅':t==='warn'?'⚠️':'💡';
+  const icon = t=> t==='good'?ic('check',15):t==='warn'?ic('warn',15):ic('info',15);
   const col  = t=> t==='good'?'var(--green)':t==='warn'?'var(--red)':'var(--muted)';
   return `<div class="card"><span class="kicker">Observations</span>
     <ul style="list-style:none;padding:0;margin:2px 0 0;font-size:.9rem">
@@ -1053,17 +1064,17 @@ function renderObservations(){
 // Écran d'accueil quand il n'y a aucune donnée.
 function renderOnboarding(){
   return `<div class="card">
-    <h2>Bienvenue 👋</h2>
+    <h2>Bienvenue</h2>
     <p style="margin:6px 0 12px;color:var(--muted)">Ton tableau de bord se remplira dès que tu saisiras des données. Pour démarrer :</p>
     <ol style="margin:0;padding-left:18px;line-height:1.9">
       <li>Va dans <b>Réglages</b> et entre ta config (TH, EE, ligue, budget).</li>
       <li>Fais une <b>baseline passive</b> (bot OFF) : clique <b>Miner Service</b> chaque jour + saisis une <b>Journée</b>.</li>
       <li>À chaque bloc gagné, ajoute un <b>Bloc</b> (&lt; 15 s). Le mardi, saisis le <b>Payout</b>.</li>
-      <li>Consulte l'onglet <b>🎯 Plan</b> pour la stratégie complète.</li>
+      <li>Consulte l'onglet <b>Plan</b> pour la stratégie complète.</li>
     </ol>
     <div class="btn-row" style="margin-top:14px">
-      <button class="btn blue" onclick="switchTab('reglages')">⚙️ Réglages</button>
-      <button class="btn accent" onclick="switchTab('plan')">🎯 Voir le Plan</button>
+      <button class="btn blue" onclick="switchTab('reglages')">Réglages</button>
+      <button class="btn accent" onclick="switchTab('plan')">Voir le Plan</button>
     </div>
   </div>`;
 }
@@ -1104,7 +1115,7 @@ function renderStripCycle(s, prev){
   return `<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
       <span class="kicker" style="margin:0">Ce cycle</span>
-      <span class="chip ${faitAuj?'ok':'todo'}">🔥 ${streak} j · ${faitAuj?'service ✅':'service ⚠️'}</span>
+      <span class="chip ${faitAuj?'ok':'todo'}">${ic('flame',14)} ${streak} j · service ${faitAuj?ic('check',13):ic('warn',13)}</span>
     </div>
     <div class="grid strip-4">
       <div class="stat"><div class="label" title="Gains − dépenses de spells, hors OPEX.">ROI spells ⓘ</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}${prev?deltaBadge(s.roiUSD,prev.roiUSD):''}</div><div class="sub">${fmtNum(s.depGmt,0)} GMT dépensés</div></div>
@@ -1112,7 +1123,7 @@ function renderStripCycle(s, prev){
       <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}${prev?deltaBadge(s.nbBlocs,prev.nbBlocs):''}</div><div class="sub">${fmtUSD(s.gainsUSD)} gagnés</div></div>
       <div class="stat"><div class="label">Budget bot</div><div class="val">${fmtNum(reste,0)}</div><div class="sub">GMT restants / ${fmtNum(budget,0)}</div><div class="progress ${pct>90?'hot':''}"><span style="width:${pct.toFixed(0)}%"></span></div></div>
     </div>
-    ${!s.aPayout && s.nbBlocs ? '<small class="muted">⏳ Gains provisoires (estimations des blocs) — figés au payout du mardi.</small>' : ''}
+    ${!s.aPayout && s.nbBlocs ? `<small class="muted">${ic('clock',12)} Gains provisoires (estimations des blocs) — figés au payout du mardi.</small>` : ''}
     ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats estimés vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} réels (payout) — le ROI se base sur le payout.</small>` : ''}
   </div>`;
 }
@@ -1148,7 +1159,7 @@ function renderParMultiplicateur(){
         <span class="cmp-track" style="height:8px;margin-top:3px"><span class="cmp-fill" style="width:${w.toFixed(0)}%;background:${col}"></span></span>
       </span></div>`;
   }).join("");
-  const note = aReel ? "EV = gains ÷ GMT réellement dépensé (Config bot). > 1× = profitable." : "⚠️ EV approx. au prorata (aucune Config bot). Ajoute-en une pour fiabiliser.";
+  const note = aReel ? "EV = gains ÷ GMT réellement dépensé (Config bot). > 1× = profitable." : ic('warn',12)+" EV approx. au prorata (aucune Config bot). Ajoute-en une pour fiabiliser.";
   return `<div class="card"><span class="kicker" title="Gains ÷ GMT dépensé, par multiplicateur.">Pourquoi — par multiplicateur ⓘ</span>${rows}<small class="muted">${note}</small></div>`;
 }
 
@@ -1166,8 +1177,8 @@ function renderRendement(s){
 function renderService(){
   const { streak, faitAuj } = calcStreakService();
   return `<div class="card"><span class="kicker">Service</span>
-    <div class="val">🔥 ${streak} jour${streak>1?'s':''}</div>
-    <div class="sub ${faitAuj?'streak-ok':'streak-todo'}">${faitAuj?"Fait aujourd'hui ✅":"⚠️ Pas encore fait aujourd'hui"}</div></div>`;
+    <div class="val">${ic('flame',20)} ${streak} jour${streak>1?'s':''}</div>
+    <div class="sub ${faitAuj?'streak-ok':'streak-todo'}">${faitAuj?ic('check',14)+" Fait aujourd'hui":ic('warn',14)+" Pas encore fait aujourd'hui"}</div></div>`;
 }
 
 /* Classe les cycles COMPLETS en passifs (dépense ≈ 0) vs boostés.
@@ -1197,7 +1208,7 @@ function renderVerdict(){
   const { passifs, boostes } = classerCycles();
   if(!passifs.length) return `<div class="card hero">${kick}<div class="verdict-label">Données insuffisantes</div>
     <p class="muted" style="margin:8px 0 12px;font-size:.9rem">Fais d'abord ≥ 1 cycle <b>passif</b> (bot OFF) : c'est ton point de comparaison. Sans lui, impossible de dire si booster paye.</p>
-    <button class="btn accent" style="width:auto;padding:10px 16px" onclick="switchTab('reglages')">⚙️ Marquer un cycle passif</button></div>`;
+    <button class="btn accent" style="width:auto;padding:10px 16px" onclick="switchTab('reglages')">Marquer un cycle passif</button></div>`;
   if(!boostes.length) return `<div class="card hero">${kick}<div class="verdict-label">Active le bot pour comparer</div>
     <p class="muted" style="margin-top:8px;font-size:.9rem">Tu as ${passifs.length} cycle(s) passif(s) de référence. Lance le Spell Bot un cycle pour voir s'il fait mieux.</p></div>`;
   const roiP = moyenne(passifs.map(c=>c.s.roiUSD));
@@ -1205,11 +1216,11 @@ function renderVerdict(){
   const diff = roiB - roiP;
   const nul = Math.abs(diff) < 0.01;
   const cls = nul ? '' : (diff>0?'pos':'neg');
-  const label = nul ? 'Match nul — trop tôt' : (diff>0 ? 'Booster paye 🎉' : 'Reste passif');
+  const label = nul ? 'Match nul — trop tôt' : (diff>0 ? 'Booster paye' : 'Reste passif');
   const dot = diff>0?'var(--green)':diff<0?'var(--red)':'var(--muted)';
   const uplift = roiP>0 ? diff/roiP*100 : null;
   const maxv = Math.max(Math.abs(roiP), Math.abs(roiB), 0.01);
-  const conf = boostes.length<4 ? ' · <span style="color:var(--red)">⚠️ confiance faible</span>' : '';
+  const conf = boostes.length<4 ? ' · <span style="color:var(--red)">'+ic('warn',12)+' confiance faible</span>' : '';
   return `<div class="card hero ${cls}"><div class="hero-grid">
     <div>
       ${kick}
@@ -1418,7 +1429,7 @@ function renderHistorique(){
 }
 function detailEntree(e){
   if(e.type==="jour"){
-    let t = `Dépenses : ${fmtNum(e.gmtDepenseBot+e.gmtDepenseManuel,1)} GMT (bot ${fmtNum(e.gmtDepenseBot,1)} / man. ${fmtNum(e.gmtDepenseManuel,1)}) · Solde bot ${fmtNum(e.soldeBot,1)}${e.opexQuotidien?" · OPEX "+fmtNum(e.opexQuotidien,1):""} · ${e.serviceFait?"Service ✅":"Service ❌"}`;
+    let t = `Dépenses : ${fmtNum(e.gmtDepenseBot+e.gmtDepenseManuel,1)} GMT (bot ${fmtNum(e.gmtDepenseBot,1)} / man. ${fmtNum(e.gmtDepenseManuel,1)}) · Solde bot ${fmtNum(e.soldeBot,1)}${e.opexQuotidien?" · OPEX "+fmtNum(e.opexQuotidien,1):""} · Service ${e.serviceFait?'<span style="color:var(--green)">'+ic('check',13)+'</span>':'<span style="color:var(--red)">'+ic('x',13)+'</span>'}`;
     return t + notes(e);
   }
   if(e.type==="bloc"){
@@ -1432,7 +1443,7 @@ function detailEntree(e){
     return `Config bot — ${fmtNum(e.gmtBotTotal||0,1)} GMT total<br><span class="muted">${parts.join(" · ")||"—"}</span>` + notes(e);
   }
 }
-function notes(e){ return e.notes ? `<br><span class="muted">📝 ${escHtml(e.notes)}</span>` : ""; }
+function notes(e){ return e.notes ? `<br><span class="muted">— ${escHtml(e.notes)}</span>` : ""; }
 
 function supprimer(id){
   if(!confirm("Supprimer cette entrée ?")) return;
@@ -1475,7 +1486,7 @@ function sauverConfig(){
   if(document.getElementById("cfgPassif").checked){ config.passiveCycleStart = cycleCourant; }
   else if(config.passiveCycleStart===cycleCourant){ config.passiveCycleStart = null; }
   ecrire("config", config);
-  toast("Config enregistrée ✅");
+  toast("Config enregistrée");
   remplirConfig();
   if(cgChange) chargerPrix(true); // recharger les prix si l'ID a changé
 }
@@ -1588,7 +1599,7 @@ function importJSON(ev){
       entries = data.entries;
       if(data.config) config = Object.assign(config, data.config);
       ecrire("entries", entries); ecrire("config", config);
-      toast("Import réussi ✅");
+      toast("Import réussi");
       switchTab("dashboard");
     }catch(e){ toast("Fichier invalide"); }
     ev.target.value = "";
