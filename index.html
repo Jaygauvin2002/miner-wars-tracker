@@ -251,6 +251,26 @@
   .tl-acts button{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:transparent;color:var(--faint);border:1px solid var(--border);transition:background-color .15s,color .15s;}
   .tl-acts button:hover{background:var(--surface3);color:var(--text);}
 
+  /* ============ PLAN — structure visuelle ============ */
+  .chip-price{display:inline-block;font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--surface3);color:var(--muted);font-variant-numeric:tabular-nums;}
+  .tag-accent{font-size:.62rem;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);border:1px solid rgba(236,182,63,.4);border-radius:5px;padding:1px 6px;}
+  .spell-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border);}
+  .spell-row:last-child{border-bottom:none;}
+  .spell-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .spell-eff{font-weight:750;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;flex:none;}
+  .spell-eff small{display:block;font-weight:400;font-size:.62rem;color:var(--faint);letter-spacing:.02em;}
+  .step{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:.9rem;}
+  .step:last-child{border-bottom:none;}
+  .step-n{width:26px;height:26px;border-radius:50%;background:var(--surface3);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.8rem;flex:none;}
+  .mbadge{display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:28px;padding:0 8px;border-radius:8px;background:var(--surface3);font-weight:700;font-size:.82rem;flex:none;}
+  .prow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+  .prow:last-child{border-bottom:none;}
+  .phase{background:var(--surface2);border-radius:12px;padding:14px 15px;}
+  .marks{list-style:none;padding:0;margin:4px 0 0;}
+  .marks li{position:relative;padding:6px 0 6px 20px;font-size:.9rem;}
+  .marks li::before{content:"";position:absolute;left:1px;top:12px;width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  .marks li.good::before{background:var(--green);} .marks li.bad::before{background:var(--red);} .marks li.info::before{background:var(--muted);}
+
   /* ============ OPTIMISATION DESKTOP / MACBOOK (≥ 861px) ============
      Bloc additif : sur grand écran on abandonne le modèle mobile
      (barre du bas, colonne étroite) pour une vraie disposition d'app. */
@@ -363,103 +383,95 @@
   <section id="tab-plan" class="hidden">
 
     <div class="card">
-      <h2>🎯 Ta situation — solo en Dune</h2>
-      <ul style="margin:6px 0 0;padding-left:18px">
-        <li><b>456 TH · EE 15 W/TH</b> → bonus de points +33 %, score effectif ≈ <b>608 pts/s</b>.</li>
-        <li><b>Solo dans ton clan :</b> quand tu gagnes, tu prends <b>100 %</b> (pool BTC + GMT perso). Mais ta probabilité de gagner = ton seul score contre des clans à centaines de membres.</li>
-        <li>👉 Tes spells sont ton <b>seul levier</b> sur la probabilité de gagner un bloc.</li>
-        <li><b>Objectif :</b> maximiser le ROI net (gains USD − dépenses GMT).</li>
+      <span class="kicker">Ta situation — solo en Dune</span>
+      <div class="grid" style="margin-top:6px">
+        <div class="stat"><div class="label">Puissance</div><div class="val">456<span style="font-size:.85rem;color:var(--muted);font-weight:600"> TH</span></div><div class="sub">EE 15 W/TH · +33 % pts</div></div>
+        <div class="stat"><div class="label">Score effectif</div><div class="val">608<span style="font-size:.85rem;color:var(--muted);font-weight:600"> pts/s</span></div></div>
+        <div class="stat"><div class="label">Objectif</div><div class="val" style="font-size:1.15rem">ROI net max</div><div class="sub">gains − dépenses</div></div>
+      </div>
+      <div class="warn" style="margin-top:16px"><b>Solo :</b> quand tu gagnes tu prends 100 % (pool BTC + GMT perso), mais ta probabilité de gagner = ton seul score contre des clans entiers. Tes spells sont ton <b>seul levier</b>.</div>
+    </div>
+
+    <div class="card">
+      <span class="kicker">Les sorts — par efficacité</span>
+      <div class="spell-row"><div style="flex:1;min-width:0"><div class="spell-line"><b>Power-up</b><span class="chip-price">21,31 GMT</span><span class="tag-accent">pilier</span></div><div class="tl-detail" style="margin-top:3px">×100 PPS · le plus efficace, cast tôt</div></div><span class="spell-eff pos">1,69 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><div style="flex:1;min-width:0"><div class="spell-line"><b>Echo</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+ croissant /2 min · rounds longs</div></div><span class="spell-eff pos">1,38 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><div style="flex:1;min-width:0"><div class="spell-line"><b>Power boost</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+2K/s · régulier, plus lisse qu'Echo</div></div><span class="spell-eff">1,20 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><div style="flex:1;min-width:0"><div class="spell-line"><b>Clan power-up</b><span class="chip-price">0,30 GMT</span></div><div class="tl-detail" style="margin-top:3px">×2 ta base · ≈ Power boost (solo)</div></div><span class="spell-eff">1,22 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><div style="flex:1;min-width:0"><div class="spell-line"><b>Instant</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+1M · plancher garanti</div></div><span class="spell-eff">1,00 M<small>pts/jeton</small></span></div>
+      <div class="spell-row"><div style="flex:1;min-width:0"><div class="spell-line"><b>Focus</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+2,5M sur 5 min · rounds courts</div></div><span class="spell-eff neg">2,5 M<small>si ≤5 min, sinon 0</small></span></div>
+      <small class="muted" style="display:block;margin-top:10px">Prix fixes 1/10/100 (base/Super/Ultra) — le palier ne change pas l'efficacité. Aucune synergie : un « combo » = Power-up d'abord, puis Echo/Power boost.</small>
+    </div>
+
+    <div class="card">
+      <span class="kicker">Setup du bot — 24/7, concentré</span>
+      <div class="prow"><span class="mbadge" style="color:var(--muted)">x1→x8</span><span class="tl-detail" style="margin:0">Setup <b>VIDE</b> — protège le budget des rounds fréquents</span></div>
+      <div class="prow"><span class="mbadge" style="color:var(--accent)">x16</span><span class="tl-detail" style="margin:0"><b>Power-up ×1</b> (priorité 2)</span></div>
+      <div class="prow"><span class="mbadge" style="color:var(--accent)">x32</span><span class="tl-detail" style="margin:0"><b>Power-up ×1</b> (priorité 1) — le round le plus payant</span></div>
+      <ul class="marks">
+        <li>Concentre sur les hauts multiplicateurs : compétitif sur peu de rounds &gt; dilué sur plein.</li>
+        <li class="bad">Jamais Focus en auto (perdu sur les rounds &gt; 5 min).</li>
+        <li class="info">Le multiplicateur du round est imposé — tu ne le choisis pas.</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>🔮 Les sorts — classés par efficacité</h2>
-      <small class="muted">Efficacité = points par jeton. Prix fixes <b>1 / 10 / 100</b> (base / Super / Ultra) : le palier ne change PAS l'efficacité, juste la taille du cast. Un round ≈ un bloc BTC : ~10 min en moyenne, mais ~40 % &lt; 5 min et ~13 % &gt; 20 min.</small>
-      <div style="display:flex;gap:8px;padding:8px 0 6px;border-bottom:1px solid var(--border);margin-top:8px"><b style="min-width:96px;color:var(--accent)">Power-up</b><span>×100 PPS · 21,31 GMT · 🥇 <b>~1,69 M pts/jeton</b>. Le pilier. Cast tôt.</span></div>
-      <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><b style="min-width:96px">Echo</b><span>+ croissant /2 min · 1/10/100 · 🥈 ~1,38 M. Mise sur rounds <b>longs</b>.</span></div>
-      <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><b style="min-width:96px">Power boost</b><span>+2K/s · 1/10/100 · ~1,20 M. Régulier, plus lisse qu'Echo.</span></div>
-      <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><b style="min-width:96px">Clan power-up</b><span>×2 ta base · 0,30 GMT · ≈ Power boost (solo).</span></div>
-      <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><b style="min-width:96px">Instant</b><span>+1M · 1/10/100 · ~1,00 M. Plancher garanti.</span></div>
-      <div style="display:flex;gap:8px;padding:6px 0"><b style="min-width:96px;color:var(--red)">Focus</b><span>+2,5M, 5 min · 1/10/100 · 🎲 tout ou rien. Rounds courts seulement.</span></div>
-      <div class="warn" style="margin:10px 0 0">Aucune <b>synergie</b> entre sorts : ils s'additionnent. Un « combo » = une échelle de dépense (Power-up d'abord, puis Echo/Power boost).</div>
-    </div>
-
-    <div class="card">
-      <h2>🤖 Setup du bot — 24/7, concentré</h2>
-      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><b style="min-width:64px;color:var(--muted)">x1→x8</b><span>Setup <b>VIDE</b>. Protège le budget des rounds fréquents.</span></div>
-      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><b style="min-width:64px;color:var(--accent)">x16</b><span><b>Power-up ×1</b> (priorité 2).</span></div>
-      <div style="display:flex;gap:10px;padding:8px 0"><b style="min-width:64px;color:var(--accent)">x32</b><span><b>Power-up ×1</b> (priorité 1) — le round le plus payant.</span></div>
-      <ul style="margin:10px 0 0;padding-left:18px;font-size:.9rem">
-        <li><b>Concentre</b> sur les hauts multiplicateurs : mieux vaut être vraiment compétitif sur peu de rounds que dilué sur plein.</li>
-        <li>⚠️ <b>Jamais Focus en auto</b> (perdu sur les rounds &gt; 5 min).</li>
-        <li>Le multiplicateur du round est imposé — tu ne le choisis pas.</li>
-      </ul>
-    </div>
-
-    <div class="card">
-      <h2>💸 Budget — 100 US$/cycle</h2>
-      <div class="grid">
-        <div class="stat"><div class="label">Budget / cycle</div><div class="val">~345 GMT</div><div class="sub">= 100 US$ (plafond)</div></div>
+      <span class="kicker">Budget — 100 US$/cycle</span>
+      <div class="grid" style="margin-top:6px">
+        <div class="stat"><div class="label">Budget / cycle</div><div class="val">~345<span style="font-size:.8rem;color:var(--muted);font-weight:600"> GMT</span></div><div class="sub">= 100 US$ (plafond)</div></div>
         <div class="stat"><div class="label">≈ Power-up / cycle</div><div class="val">~16</div><div class="sub">à 21,31 GMT/cast</div></div>
       </div>
-      <ul style="margin:10px 0 0;padding-left:18px;font-size:.9rem">
+      <ul class="marks">
         <li>Mets <b>budgetBotCycle ≈ 345 GMT</b> dans Réglages (= 100 US$ au prix du jour).</li>
-        <li><b>Plafond en $US, budget en GMT</b> : si le prix du GMT bouge, recalcule (100 ÷ prix GMT). Le prix s'affiche en haut de l'app.</li>
-        <li>Surveille <b>« Budget bot restant »</b> le 1ᵉʳ jour : s'il fond trop vite → passe à x32 seul.</li>
-        <li>Le bot ne doit <b>jamais</b> coûter plus qu'il ne rapporte (mesuré vs baseline).</li>
+        <li class="info">Plafond en $US, budget en GMT — si le prix bouge, recalcule (100 ÷ prix GMT).</li>
+        <li class="bad">Surveille « Budget bot restant » le 1ᵉʳ jour : s'il fond trop vite → x32 seul.</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>📅 Les phases</h2>
-      <div style="padding:6px 0;border-bottom:1px solid var(--border)">
-        <b style="color:var(--accent2)">Phase 1 — Baseline passive</b> · ~2 cycles · bot OFF · 0 GMT<br>
-        <span class="muted" style="font-size:.85rem">Mesure ton taux de victoire SANS booster. Coche « cycle passif de référence » dans Réglages.</span>
+      <span class="kicker">Les phases</span>
+      <div class="grid" style="margin-top:6px">
+        <div class="phase"><b style="color:var(--accent2)">Phase 1 — Baseline</b><div class="tl-detail" style="margin-top:6px">~2 cycles · bot OFF · 0 GMT. Mesure ton taux de victoire sans booster. Coche « cycle passif » dans Réglages.</div></div>
+        <div class="phase"><b style="color:var(--green)">Phase 2 — Bot 24/7</b><div class="tl-detail" style="margin-top:6px">Plusieurs cycles · Power-up x16/x32 · ~345 GMT. Une seule variable change à la fois.</div></div>
       </div>
-      <div style="padding:8px 0">
-        <b style="color:var(--green)">Phase 2 — Bot 24/7</b> · plusieurs cycles · Power-up x16/x32 · ~345 GMT<br>
-        <span class="muted" style="font-size:.85rem">Une seule variable change à la fois (voir séquence de test).</span>
-      </div>
-      <div class="warn" style="margin:8px 0 0">⚠️ Un seul cycle ne prouve rien (loterie = grosse variance). Vise ≥ 4-5 cycles.</div>
+      <div class="warn" style="margin-top:14px">Un seul cycle ne prouve rien (loterie = grosse variance). Vise ≥ 4-5 cycles.</div>
     </div>
 
     <div class="card">
-      <h2>🧪 Séquence de test</h2>
-      <ol style="margin:6px 0 0;padding-left:18px;font-size:.9rem">
-        <li><b>Cycle 1 :</b> Power-up seul sur x16/x32. Effet du pilier vs passif.</li>
-        <li><b>Cycle 2 :</b> + Echo ×2 sur x32. Le stacking paie-t-il ?</li>
-        <li><b>Cycle 3 :</b> Echo → Power boost sur x32. Variance vs stable.</li>
-        <li><b>Cycle 4 :</b> + x8 Power boost. Élargir vaut-il le coût ?</li>
-      </ol>
-      <small class="muted">À chaque cycle : saisis <b>la durée du round</b> sur tes blocs — c'est ce qui valide/invalide le classement des sorts.</small>
+      <span class="kicker">Séquence de test</span>
+      <div class="step"><span class="step-n">1</span><span>Power-up seul sur x16/x32 — effet du pilier vs passif.</span></div>
+      <div class="step"><span class="step-n">2</span><span>+ Echo ×2 sur x32 — le stacking paie-t-il ?</span></div>
+      <div class="step"><span class="step-n">3</span><span>Echo → Power boost sur x32 — variance vs stable.</span></div>
+      <div class="step"><span class="step-n">4</span><span>+ x8 Power boost — élargir vaut-il le coût ?</span></div>
+      <small class="muted" style="display:block;margin-top:10px">À chaque cycle : saisis <b>la durée du round</b> — c'est ce qui valide le classement des sorts.</small>
     </div>
 
     <div class="card">
-      <h2>✅ Routine</h2>
-      <ul style="margin:6px 0 0;padding-left:18px">
-        <li><b>Miner Service</b> dès que son cooldown (~12 h) est fini : gratuit, points (PPS × 1000) + rabais maintenance jusqu'à 3 %. Le bot payant ne le fait PAS à ta place.</li>
-        <li>Saisis chaque <b>bloc gagné</b> (&lt; 15 s) : multiplicateur, sats, GMT perso, durée du round.</li>
-        <li><b>Mardi (fin de cycle) :</b> payout + <b>Config bot</b> (spells + GMT dépensé par multiplicateur).</li>
+      <span class="kicker">Routine</span>
+      <ul class="marks">
+        <li class="good"><b>Miner Service</b> dès le cooldown (~12 h) : gratuit, points + rabais jusqu'à 3 %. Le bot payant ne le fait PAS.</li>
+        <li>Saisis chaque <b>bloc gagné</b> (&lt; 15 s) : multiplicateur, sats, GMT, durée.</li>
+        <li>Mardi : <b>payout</b> + <b>Config bot</b> (spells + GMT par multiplicateur).</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>📏 Règles de décision</h2>
-      <ul style="margin:6px 0 0;padding-left:18px;font-size:.9rem">
-        <li><b class="pos">Continuer</b> si, sur ≥ 3 cycles : ROI spells médian &gt; 1 <b>ET</b> gain vs baseline &gt; 0.</li>
-        <li><b class="neg">Couper</b> si ROI &lt; 1 <b>ou</b> aucun gain vs baseline → retour passif (~0 coût).</li>
+      <span class="kicker">Règles de décision</span>
+      <ul class="marks">
+        <li class="good"><b>Continuer</b> si ROI spells médian &gt; 1 ET gain vs baseline &gt; 0 (≥ 3 cycles).</li>
+        <li class="bad"><b>Couper</b> si ROI &lt; 1 ou aucun gain vs baseline → retour passif.</li>
         <li><b>Monter le budget</b> après 2 cycles consécutifs à ROI &gt; 1.</li>
-        <li><b>Verrou solo :</b> si tu gagnes très peu même en boostant, le problème est la structure solo → envisager un clan fort.</li>
+        <li class="info"><b>Verrou solo :</b> si tu gagnes très peu même boosté → problème de structure, envisager un clan.</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>🔎 À relever en jeu</h2>
-      <ol style="margin:6px 0 0;padding-left:18px;font-size:.9rem">
+      <span class="kicker">À relever en jeu</span>
+      <ul class="marks">
         <li><b>Durée de tes rounds</b> — valide le choix des sorts.</li>
-        <li>Ton <b>taux de victoire</b> (passif puis boosté) — décide de tout.</li>
-        <li>Power-up : multiplie-t-il la PPS <b>de base</b> ou <b>courante</b> ? Focus : vraiment 0 si round &gt; 5 min ?</li>
-      </ol>
+        <li><b>Taux de victoire</b> (passif puis boosté) — décide de tout.</li>
+        <li class="info">Power-up : PPS de base ou courante ? Focus : vraiment 0 si round &gt; 5 min ?</li>
+      </ul>
     </div>
 
   </section>
