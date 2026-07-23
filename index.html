@@ -233,6 +233,24 @@
   .kicker{display:flex;align-items:center;gap:9px;}
   .kicker::before{content:"";width:14px;height:2px;border-radius:2px;background:var(--accent);flex:none;opacity:.9;}
 
+  /* ============ HISTORIQUE — timeline moderne ============ */
+  .hist-group{margin-bottom:22px;}
+  .hist-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin:0 4px 9px;}
+  .hist-range{font-weight:700;font-size:.98rem;letter-spacing:-.01em;}
+  .hist-stat{font-size:.76rem;color:var(--faint);}
+  .tl.card{padding:4px 18px;}
+  .tl-row{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border);}
+  .tl-row:last-child{border-bottom:none;}
+  .tl-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex:none;}
+  .tl-body{flex:1;min-width:0;}
+  .tl-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;}
+  .tl-title{font-weight:650;font-size:.92rem;color:var(--text);}
+  .tl-time{font-size:.74rem;color:var(--faint);white-space:nowrap;flex:none;}
+  .tl-detail{font-size:.83rem;color:var(--muted);margin-top:3px;line-height:1.5;}
+  .tl-acts{display:flex;gap:6px;margin-top:9px;}
+  .tl-acts button{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:transparent;color:var(--faint);border:1px solid var(--border);transition:background-color .15s,color .15s;}
+  .tl-acts button:hover{background:var(--surface3);color:var(--text);}
+
   /* ============ OPTIMISATION DESKTOP / MACBOOK (≥ 861px) ============
      Bloc additif : sur grand écran on abandonne le modèle mobile
      (barre du bas, colonne étroite) pour une vraie disposition d'app. */
@@ -1350,26 +1368,40 @@ function renderHistorique(){
   es.forEach(e=>{ const k=cleCycle(e.date); (groupes[k]=groupes[k]||[]).push(e); });
   const keys = Object.keys(groupes).sort().reverse();
 
+  const svg = p=>`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const meta = {
+    jour:{ic:'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>', c:'var(--accent2)', bg:'rgba(91,155,242,.14)', t:'Journée'},
+    bloc:{ic:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>', c:'var(--accent)', bg:'rgba(236,182,63,.14)'},
+    payout:{ic:'<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>', c:'var(--green)', bg:'rgba(64,207,135,.14)', t:'Payout'},
+    botcfg:{ic:'<rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16.01"/><line x1="16" y1="16" x2="16" y2="16.01"/>', c:'#c4a3f0', bg:'rgba(196,163,240,.14)', t:'Config bot'}
+  };
+  const iconEdit = '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>';
+  const iconDel  = '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>';
+
   list.innerHTML = keys.map(k=>{
     const debut = dateDeCle(k), fin = finCycle(debut);
     const st = statsCycle(debut);
     const roi = st.depUSD>0 ? (st.gainsUSD/st.depUSD).toFixed(2)+"×" : "—";
-    const entete = `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:16px 2px 8px;padding-bottom:6px;border-bottom:1px solid var(--border)">
-      <b style="font-size:.9rem">${debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})} → ${fin.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})}</b>
-      <span style="font-size:.76rem"><span class="muted">${st.nbBlocs} bloc${st.nbBlocs>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi} · net </span><span class="${st.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(st.netAbsoluUSD)}</span></span>
+    const head = `<div class="hist-head">
+      <span class="hist-range">${debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})} → ${fin.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})}</span>
+      <span class="hist-stat">${st.nbBlocs} bloc${st.nbBlocs>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi} · <span class="${st.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(st.netAbsoluUSD)}</span></span>
     </div>`;
-    const items = groupes[k].map(e=> `<div class="item">
-      <div class="top">
-        <span class="badge ${e.type}">${e.type==="jour"?"📅 Journée":e.type==="bloc"?"🎉 Bloc x"+e.multiplicateur:e.type==="payout"?"💰 Payout":"🤖 Config bot"}</span>
-        <span class="date">${fmtDate(e.date)}</span>
-      </div>
-      <div class="detail">${detailEntree(e)}</div>
-      <div class="acts">
-        <button onclick="ouvrirForm('${e.type}','${e.id}')">✏️ Modifier</button>
-        <button onclick="supprimer('${e.id}')">🗑️ Supprimer</button>
-      </div>
-    </div>`).join("");
-    return entete + items;
+    const rows = groupes[k].map(e=>{
+      const m = meta[e.type] || meta.jour;
+      const titre = e.type==="bloc" ? "Bloc x"+e.multiplicateur : (m.t||"");
+      return `<div class="tl-row">
+        <span class="tl-ico" style="background:${m.bg};color:${m.c}">${svg(m.ic)}</span>
+        <div class="tl-body">
+          <div class="tl-top"><span class="tl-title">${titre}</span><span class="tl-time">${fmtDate(e.date)}</span></div>
+          <div class="tl-detail">${detailEntree(e)}</div>
+          <div class="tl-acts">
+            <button onclick="ouvrirForm('${e.type}','${e.id}')" title="Modifier">${svg(iconEdit)}</button>
+            <button onclick="supprimer('${e.id}')" title="Supprimer">${svg(iconDel)}</button>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+    return `<div class="hist-group">${head}<div class="tl card">${rows}</div></div>`;
   }).join("");
 }
 function detailEntree(e){
