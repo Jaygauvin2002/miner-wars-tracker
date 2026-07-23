@@ -270,67 +270,93 @@
     </div>
 
     <div class="card">
-      <h2>📅 Les 2 phases de l'expérience</h2>
-      <div style="padding:6px 0;border-bottom:1px solid var(--border)">
-        <b style="color:var(--accent2)">Phase 1 — Baseline passive</b> · 2 cycles · bot OFF · 0 GMT<br>
-        <span class="muted" style="font-size:.85rem">But : mesurer combien de blocs/semaine tu gagnes SANS booster. Coche « cycle passif de référence » dans Réglages sur un de ces cycles.</span>
-      </div>
-      <div style="padding:8px 0">
-        <b style="color:var(--green)">Phase 2 — Test boost</b> · 2-3 cycles · bot ON · ~100 GMT<br>
-        <span class="muted" style="font-size:.85rem">Concentré sur x8+. Change une seule variable à la fois entre cycles.</span>
-      </div>
-      <div class="warn" style="margin:8px 0 0">⚠️ Un seul cycle ne prouve rien (loterie = grosse variance). Vise ≥ 4-5 cycles avant de conclure.</div>
+      <h2>🔮 Les sorts — classés par efficacité</h2>
+      <small class="muted">Efficacité = points par jeton. Prix fixes <b>1 / 10 / 100</b> (base / Super / Ultra) : le palier ne change PAS l'efficacité, juste la taille du cast. Un round ≈ un bloc BTC : ~10 min en moyenne, mais ~40 % &lt; 5 min et ~13 % &gt; 20 min.</small>
+      <div style="display:flex;gap:8px;padding:8px 0 6px;border-bottom:1px solid var(--border);margin-top:8px"><b style="min-width:96px;color:var(--accent)">Power-up</b><span>×100 PPS · 21,31 GMT · 🥇 <b>~1,69 M pts/jeton</b>. Le pilier. Cast tôt.</span></div>
+      <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><b style="min-width:96px">Echo</b><span>+ croissant /2 min · 1/10/100 · 🥈 ~1,38 M. Mise sur rounds <b>longs</b>.</span></div>
+      <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><b style="min-width:96px">Power boost</b><span>+2K/s · 1/10/100 · ~1,20 M. Régulier, plus lisse qu'Echo.</span></div>
+      <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><b style="min-width:96px">Clan power-up</b><span>×2 ta base · 0,30 GMT · ≈ Power boost (solo).</span></div>
+      <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><b style="min-width:96px">Instant</b><span>+1M · 1/10/100 · ~1,00 M. Plancher garanti.</span></div>
+      <div style="display:flex;gap:8px;padding:6px 0"><b style="min-width:96px;color:var(--red)">Focus</b><span>+2,5M, 5 min · 1/10/100 · 🎲 tout ou rien. Rounds courts seulement.</span></div>
+      <div class="warn" style="margin:10px 0 0">Aucune <b>synergie</b> entre sorts : ils s'additionnent. Un « combo » = une échelle de dépense (Power-up d'abord, puis Echo/Power boost).</div>
     </div>
 
     <div class="card">
-      <h2>🤖 Setups du Spell Bot par multiplicateur</h2>
-      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><b style="min-width:52px;color:var(--muted)">x1</b><span>Setup <b>VIDE</b> — 0 GMT. Tu joues la chance.</span></div>
-      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><b style="min-width:52px;color:var(--muted)">x2</b><span>Vide, ou 1 GMT max.</span></div>
-      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><b style="min-width:52px;color:var(--muted)">x4</b><span>Léger.</span></div>
-      <div style="display:flex;gap:10px;padding:8px 0"><b style="min-width:52px;color:var(--accent)">x8+</b><span><b>~80 % du budget ici.</b> Spell <b>Power</b> en priorité (dure jusqu'à la fin du round). C'est là qu'une victoire paie 8-32×.</span></div>
-      <div class="warn" style="margin:10px 0 0">⚠️ N'automatise <b>jamais le Focus Boost</b> (fenêtre 5 min) : le bot ne détecte pas la fin du round → GMT gaspillé.</div>
-    </div>
-
-    <div class="card">
-      <h2>💸 Budget</h2>
-      <div class="grid">
-        <div class="stat"><div class="label">Plafond / cycle</div><div class="val">~345 GMT</div><div class="sub">≈ 100 US$</div></div>
-        <div class="stat"><div class="label">Départ (phase 2)</div><div class="val">~100 GMT</div><div class="sub">≈ 29 US$</div></div>
-      </div>
+      <h2>🤖 Setup du bot — 24/7, concentré</h2>
+      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><b style="min-width:64px;color:var(--muted)">x1→x8</b><span>Setup <b>VIDE</b>. Protège le budget des rounds fréquents.</span></div>
+      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><b style="min-width:64px;color:var(--accent)">x16</b><span><b>Power-up ×1</b> (priorité 2).</span></div>
+      <div style="display:flex;gap:10px;padding:8px 0"><b style="min-width:64px;color:var(--accent)">x32</b><span><b>Power-up ×1</b> (priorité 1) — le round le plus payant.</span></div>
       <ul style="margin:10px 0 0;padding-left:18px;font-size:.9rem">
-        <li>Le bot ne doit <b>jamais</b> coûter plus que ce que tu récupères.</li>
-        <li>Monte vers le plafond <b>seulement</b> après 2 cycles consécutifs à ROI &gt; 1.</li>
-        <li>Lis le champ <b>« Total »</b> du Spell Bot pour le vrai coût par cast (il change chaque cycle).</li>
+        <li><b>Concentre</b> sur les hauts multiplicateurs : mieux vaut être vraiment compétitif sur peu de rounds que dilué sur plein.</li>
+        <li>⚠️ <b>Jamais Focus en auto</b> (perdu sur les rounds &gt; 5 min).</li>
+        <li>Le multiplicateur du round est imposé — tu ne le choisis pas.</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>✅ Routine quotidienne</h2>
+      <h2>💸 Budget — 100 US$/cycle</h2>
+      <div class="grid">
+        <div class="stat"><div class="label">Budget / cycle</div><div class="val">~345 GMT</div><div class="sub">= 100 US$ (plafond)</div></div>
+        <div class="stat"><div class="label">≈ Power-up / cycle</div><div class="val">~16</div><div class="sub">à 21,31 GMT/cast</div></div>
+      </div>
+      <ul style="margin:10px 0 0;padding-left:18px;font-size:.9rem">
+        <li>Mets <b>budgetBotCycle ≈ 345 GMT</b> dans Réglages (= 100 US$ au prix du jour).</li>
+        <li><b>Plafond en $US, budget en GMT</b> : si le prix du GMT bouge, recalcule (100 ÷ prix GMT). Le prix s'affiche en haut de l'app.</li>
+        <li>Surveille <b>« Budget bot restant »</b> le 1ᵉʳ jour : s'il fond trop vite → passe à x32 seul.</li>
+        <li>Le bot ne doit <b>jamais</b> coûter plus qu'il ne rapporte (mesuré vs baseline).</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>📅 Les phases</h2>
+      <div style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <b style="color:var(--accent2)">Phase 1 — Baseline passive</b> · ~2 cycles · bot OFF · 0 GMT<br>
+        <span class="muted" style="font-size:.85rem">Mesure ton taux de victoire SANS booster. Coche « cycle passif de référence » dans Réglages.</span>
+      </div>
+      <div style="padding:8px 0">
+        <b style="color:var(--green)">Phase 2 — Bot 24/7</b> · plusieurs cycles · Power-up x16/x32 · ~345 GMT<br>
+        <span class="muted" style="font-size:.85rem">Une seule variable change à la fois (voir séquence de test).</span>
+      </div>
+      <div class="warn" style="margin:8px 0 0">⚠️ Un seul cycle ne prouve rien (loterie = grosse variance). Vise ≥ 4-5 cycles.</div>
+    </div>
+
+    <div class="card">
+      <h2>🧪 Séquence de test</h2>
+      <ol style="margin:6px 0 0;padding-left:18px;font-size:.9rem">
+        <li><b>Cycle 1 :</b> Power-up seul sur x16/x32. Effet du pilier vs passif.</li>
+        <li><b>Cycle 2 :</b> + Echo ×2 sur x32. Le stacking paie-t-il ?</li>
+        <li><b>Cycle 3 :</b> Echo → Power boost sur x32. Variance vs stable.</li>
+        <li><b>Cycle 4 :</b> + x8 Power boost. Élargir vaut-il le coût ?</li>
+      </ol>
+      <small class="muted">À chaque cycle : saisis <b>la durée du round</b> sur tes blocs — c'est ce qui valide/invalide le classement des sorts.</small>
+    </div>
+
+    <div class="card">
+      <h2>✅ Routine</h2>
       <ul style="margin:6px 0 0;padding-left:18px">
-        <li><b>Clique le bouton Service CHAQUE jour</b> : points gratuits (PPS × 1000) + rabais maintenance jusqu'à 3 % (+0,3 %/jour, remis à zéro si tu sautes un jour).</li>
-        <li>Saisis chaque bloc gagné (&lt; 15 s) : multiplicateur, sats, GMT perso.</li>
-        <li><b>Mardi (fin de cycle) :</b> saisis le payout, puis la <b>Config bot</b> (spells + GMT dépensé par multiplicateur — c'est ce qui rend l'EV fiable, pertes incluses).</li>
+        <li><b>Miner Service</b> dès que son cooldown (~12 h) est fini : gratuit, points (PPS × 1000) + rabais maintenance jusqu'à 3 %. Le bot payant ne le fait PAS à ta place.</li>
+        <li>Saisis chaque <b>bloc gagné</b> (&lt; 15 s) : multiplicateur, sats, GMT perso, durée du round.</li>
+        <li><b>Mardi (fin de cycle) :</b> payout + <b>Config bot</b> (spells + GMT dépensé par multiplicateur).</li>
       </ul>
     </div>
 
     <div class="card">
       <h2>📏 Règles de décision</h2>
       <ul style="margin:6px 0 0;padding-left:18px;font-size:.9rem">
-        <li><b class="pos">Continuer</b> si, sur ≥ 3 cycles boostés : ROI net médian &gt; 1 <b>ET</b> gain vs baseline &gt; 0.</li>
-        <li><b class="neg">Couper le bot</b> si ROI médian &lt; 1 <b>ou</b> aucun gain vs baseline → retour passif (coût ~0).</li>
-        <li><b>Monter le budget</b> après 2 cycles consécutifs à ROI &gt; 1, sur les multiplicateurs les plus rentables observés.</li>
-        <li><b>Verrou solo :</b> si tu gagnes très peu même en boostant, le problème est la structure solo, pas le budget → envisager de rejoindre un clan fort (à trancher avec les données).</li>
+        <li><b class="pos">Continuer</b> si, sur ≥ 3 cycles : ROI spells médian &gt; 1 <b>ET</b> gain vs baseline &gt; 0.</li>
+        <li><b class="neg">Couper</b> si ROI &lt; 1 <b>ou</b> aucun gain vs baseline → retour passif (~0 coût).</li>
+        <li><b>Monter le budget</b> après 2 cycles consécutifs à ROI &gt; 1.</li>
+        <li><b>Verrou solo :</b> si tu gagnes très peu même en boostant, le problème est la structure solo → envisager un clan fort.</li>
       </ul>
     </div>
 
     <div class="card">
-      <h2>🔎 À relever en jeu (données manquantes)</h2>
+      <h2>🔎 À relever en jeu</h2>
       <ol style="margin:6px 0 0;padding-left:18px;font-size:.9rem">
-        <li>Coût réel par cast (champ « Total ») pour chaque multiplicateur.</li>
-        <li>Valeur réelle d'un bloc en Dune (GMT + sats) par multiplicateur.</li>
-        <li>Ton taux de victoire passif — la donnée qui décide de tout.</li>
+        <li><b>Durée de tes rounds</b> — valide le choix des sorts.</li>
+        <li>Ton <b>taux de victoire</b> (passif puis boosté) — décide de tout.</li>
+        <li>Power-up : multiplie-t-il la PPS <b>de base</b> ou <b>courante</b> ? Focus : vraiment 0 si round &gt; 5 min ?</li>
       </ol>
-      <small class="muted">Repères vérifiés (à confirmer par tes données) : bloc x1 en Dune ≈ 12-25 GMT ; ~1 bloc/semaine à 75 TH en passif.</small>
     </div>
 
   </section>
