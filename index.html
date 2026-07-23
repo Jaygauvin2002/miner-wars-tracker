@@ -347,6 +347,8 @@
       <input type="text" id="cfgLeague" />
       <label>Budget GMT du bot par cycle</label>
       <input type="number" id="cfgBudget" inputmode="decimal" />
+      <label>OPEX quotidien par défaut (GMT — élec. + maintenance)</label>
+      <input type="number" id="cfgOpex" inputmode="decimal" />
       <label>ID CoinGecko du token GMT</label>
       <input type="text" id="cfgCgId" placeholder="gmt-token" />
       <div class="field-inline">
@@ -415,7 +417,7 @@ function ecrire(cle, val){ localStorage.setItem("mw_" + cle, JSON.stringify(val)
 
 /* ---------- État global ---------- */
 let entries = lire("entries", []);
-let config  = lire("config", { thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null });
+let config  = lire("config", { thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null, opexQuotidien:0 });
 let prix    = lire("prices", null);   // { ts, gomining, bitcoin }  (en USD)
 let filtreHist = "all";
 let charts = {};
@@ -539,6 +541,7 @@ function ouvrirForm(type, id){
     html += champ("GMT dépensé (manuel)", `<input type="number" inputmode="decimal" id="f_gman" value="${e? e.gmtDepenseManuel : ''}">`);
     html += `</div>`;
     html += champ("Solde du Spell Bot (GMT)", `<input type="number" inputmode="decimal" id="f_solde" value="${e? e.soldeBot : ''}">`);
+    html += champ("OPEX du jour (GMT — élec.+maintenance)", `<input type="number" inputmode="decimal" id="f_opex" value="${e? (e.opexQuotidien||'') : (config.opexQuotidien||'')}">`);
     html += `<div class="field-inline"><input type="checkbox" id="f_service" ${(!e || e.serviceFait)?'checked':''}><label for="f_service">Bouton service fait ✅</label></div>`;
   }
   else if(type==="bloc"){
@@ -612,8 +615,9 @@ function sauverEntree(type){
     obj.gmtDepenseBot = num("f_gbot");
     obj.gmtDepenseManuel = num("f_gman");
     obj.soldeBot = num("f_solde");
+    obj.opexQuotidien = num("f_opex");
     obj.serviceFait = document.getElementById("f_service").checked;
-    if(obj.gmtDepenseBot < 0 || obj.gmtDepenseManuel < 0){ toast("Dépenses négatives interdites"); return; }
+    if(obj.gmtDepenseBot < 0 || obj.gmtDepenseManuel < 0 || obj.opexQuotidien < 0){ toast("Valeurs négatives interdites"); return; }
   }
   else if(type==="bloc"){
     if(!MULTIS.includes(multChoisi)){ toast("Choisis un multiplicateur"); return; }
@@ -705,6 +709,7 @@ function statsCycle(debut){
   const payouts = es.filter(e=>e.type==="payout");
 
   const depGmt = jours.reduce((s,e)=> s + e.gmtDepenseBot + e.gmtDepenseManuel, 0);
+  const opexGmt = jours.reduce((s,e)=> s + (e.opexQuotidien||0), 0); // élec.+maintenance (court, bot ON ou OFF)
 
   // GROUND TRUTH = le payout (ce qui est réellement reçu). Les blocs servent seulement
   // à estimer AVANT le payout et à ventiler par multiplicateur (diagnostic).
@@ -725,7 +730,9 @@ function statsCycle(debut){
 
   const depUSD   = depGmt * pxGmt;
   const gainsUSD = (satsGagnes / SATS_PAR_BTC) * pxBtc + gmtGagnes * pxGmt;
-  const roiUSD   = gainsUSD - depUSD;
+  const roiUSD   = gainsUSD - depUSD;                 // ROI des spells (hors OPEX) — pertinent pour actif vs passif
+  const opexUSD  = opexGmt * pxGmt;
+  const netAbsoluUSD = gainsUSD - depUSD - opexUSD;   // net absolu : "est-ce que je gagne de l'argent tout court"
 
   // Diagnostic de réconciliation blocs vs payout (repère les oublis de saisie)
   const satsBlocs = blocs.reduce((s,e)=>s+e.btcSats,0);
@@ -736,7 +743,7 @@ function statsCycle(debut){
   const gmtBlocMoy= nbBlocs ? gmtBlocs/nbBlocs : 0;
   const coutGmtParBloc = nbBlocs ? depGmt/nbBlocs : 0;
 
-  return { es, jours, blocs, payouts, aPayout, depGmt, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
+  return { es, jours, blocs, payouts, aPayout, depGmt, opexGmt, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
 function renderDashboard(){
@@ -754,7 +761,8 @@ function renderDashboard(){
     <div class="grid">
       <div class="stat"><div class="label">GMT dépensés</div><div class="val">${fmtNum(s.depGmt,1)}</div><div class="sub">${fmtUSD(s.depUSD)}</div></div>
       <div class="stat"><div class="label">Gains (GMT+BTC)</div><div class="val">${fmtUSD(s.gainsUSD)}</div><div class="sub">${fmtNum(s.gmtGagnes,1)} GMT · ${fmtNum(s.satsGagnes)} sats</div></div>
-      <div class="stat"><div class="label">ROI du cycle</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}</div><div class="sub">gains − dépenses</div></div>
+      <div class="stat"><div class="label">ROI spells du cycle</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}</div><div class="sub">gains − dépenses (hors OPEX)</div></div>
+      <div class="stat"><div class="label">Net absolu</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}</div><div class="sub">après OPEX (${fmtNum(s.opexGmt,0)} GMT)</div></div>
       <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}</div><div class="sub">ce cycle</div></div>
     </div>
     ${!s.aPayout && s.nbBlocs ? '<small class="muted">⏳ Gains provisoires (estimés via les blocs — pas encore de payout ce cycle).</small>' : ''}
@@ -935,7 +943,7 @@ function renderHistorique(){
 }
 function detailEntree(e){
   if(e.type==="jour"){
-    let t = `Dépenses : ${fmtNum(e.gmtDepenseBot+e.gmtDepenseManuel,1)} GMT (bot ${fmtNum(e.gmtDepenseBot,1)} / man. ${fmtNum(e.gmtDepenseManuel,1)}) · Solde bot ${fmtNum(e.soldeBot,1)} · ${e.serviceFait?"Service ✅":"Service ❌"}`;
+    let t = `Dépenses : ${fmtNum(e.gmtDepenseBot+e.gmtDepenseManuel,1)} GMT (bot ${fmtNum(e.gmtDepenseBot,1)} / man. ${fmtNum(e.gmtDepenseManuel,1)}) · Solde bot ${fmtNum(e.soldeBot,1)}${e.opexQuotidien?" · OPEX "+fmtNum(e.opexQuotidien,1):""} · ${e.serviceFait?"Service ✅":"Service ❌"}`;
     return t + notes(e);
   }
   if(e.type==="bloc"){
@@ -967,6 +975,7 @@ function remplirConfig(){
   document.getElementById("cfgEe").value = config.eeMoyenne||"";
   document.getElementById("cfgLeague").value = config.league||"";
   document.getElementById("cfgBudget").value = config.budgetBotCycle||"";
+  document.getElementById("cfgOpex").value = config.opexQuotidien||"";
   document.getElementById("cfgCgId").value = config.coingeckoId||"gmt-token";
   const cycleCourant = cleCycle(new Date());
   document.getElementById("cfgPassif").checked = config.passiveCycleStart===cycleCourant;
@@ -980,6 +989,7 @@ function sauverConfig(){
   config.eeMoyenne = parseFloat(document.getElementById("cfgEe").value)||0;
   config.league = document.getElementById("cfgLeague").value.trim();
   config.budgetBotCycle = parseFloat(document.getElementById("cfgBudget").value)||0;
+  config.opexQuotidien = parseFloat(document.getElementById("cfgOpex").value)||0;
   const cg = document.getElementById("cfgCgId").value.trim();
   const cgChange = cg !== config.coingeckoId;
   config.coingeckoId = cg || "gmt-token";
@@ -1024,6 +1034,7 @@ function statsGlobales(){
       cycle:k, blocs:s.nbBlocs, depGmt:+s.depGmt.toFixed(2),
       satsGagnes:s.satsGagnes, gmtGagnes:+s.gmtGagnes.toFixed(2),
       depUSD:+s.depUSD.toFixed(2), gainsUSD:+s.gainsUSD.toFixed(2), roiUSD:+s.roiUSD.toFixed(2),
+      opexGmt:+s.opexGmt.toFixed(2), netAbsoluUSD:+s.netAbsoluUSD.toFixed(2),
       aPayout:s.aPayout, pxBtcUsd:+(s.pxBtc||0).toFixed(2), pxGmtUsd:+(s.pxGmt||0).toFixed(4),
       satsBlocs:s.satsBlocs, gmtBlocs:+s.gmtBlocs.toFixed(2),
       satsMoyParBloc:Math.round(s.satsMoy), coutGmtParBloc:+s.coutGmtParBloc.toFixed(2),
@@ -1060,9 +1071,9 @@ function fallbackCopie(str,msg){
 
 function exportCSV(){
   // Un CSV à plat : toutes les colonnes possibles.
-  const cols = ["id","date","type","thTotal","gmtDepenseBot","gmtDepenseManuel","serviceFait","soldeBot",
+  const cols = ["id","date","type","thTotal","gmtDepenseBot","gmtDepenseManuel","opexQuotidien","serviceFait","soldeBot",
     "multiplicateur","btcSats","gmtPerso","spellsActifs","dureeRondeMin",
-    "btcSatsRecu","gmtRecu","fraisSats","cycleKey","gmtBotTotal","setups","notes"];
+    "btcSatsRecu","gmtRecu","fraisSats","prixBtcUsd","prixGmtUsd","cycleKey","gmtBotTotal","setups","notes"];
   const esc = v => v==null?"":`"${String(v).replace(/"/g,'""')}"`;
   const cell = (e,c)=> (c==="setups" && e[c]) ? esc(JSON.stringify(e[c])) : esc(e[c]); // setups → JSON
   const lignes = [cols.join(",")].concat(
@@ -1112,7 +1123,7 @@ function effacerTout(){
   if(!confirm("Effacer TOUTES les données Miner Wars ? Irréversible.")) return;
   if(!confirm("Vraiment sûr ? Pense à exporter d'abord.")) return;
   ["entries","config","prices","lastExport"].forEach(k=>localStorage.removeItem("mw_"+k));
-  entries=[]; config={ thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null };
+  entries=[]; config={ thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null, opexQuotidien:0 };
   toast("Tout effacé"); switchTab("saisie");
 }
 
