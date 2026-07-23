@@ -812,8 +812,8 @@ function renderApercu(){
       <div class="stat"><div class="label">Gains totaux</div><div class="val">${fmtUSD(tot.gainsUSD)}</div></div>
       <div class="stat"><div class="label">Dépenses totales</div><div class="val">${fmtUSD(tot.depUSD)}</div><div class="sub">${fmtNum(tot.depGmt,0)} GMT</div></div>
       <div class="stat"><div class="label">Net spells</div><div class="val ${net>=0?'pos':'neg'}">${fmtUSD(net)}</div></div>
-      <div class="stat"><div class="label">ROI global</div><div class="val ${roi>=1?'pos':'neg'}">${tot.depUSD>0?roi.toFixed(2)+"×":"—"}</div></div>
-      <div class="stat"><div class="label">Net absolu</div><div class="val ${tot.netAbs>=0?'pos':'neg'}">${fmtUSD(tot.netAbs)}</div><div class="sub">après OPEX</div></div>
+      <div class="stat"><div class="label" title="Gains cumulés ÷ dépenses cumulées (tous cycles). > 1× = profitable.">ROI global ⓘ</div><div class="val ${roi>=1?'pos':'neg'}">${tot.depUSD>0?roi.toFixed(2)+"×":"—"}</div></div>
+      <div class="stat"><div class="label" title="Gains − dépenses − OPEX (élec./maintenance). « Est-ce que je gagne de l'argent tout court ».">Net absolu ⓘ</div><div class="val ${tot.netAbs>=0?'pos':'neg'}">${fmtUSD(tot.netAbs)}</div><div class="sub">après OPEX</div></div>
       <div class="stat"><div class="label">Meilleur bloc</div><div class="val">${fmtNum(meilleur)}</div><div class="sub">sats</div></div>
     </div>
   </div>`;
@@ -940,10 +940,29 @@ function renderObservations(){
     </ul></div>`;
 }
 
+// Écran d'accueil quand il n'y a aucune donnée.
+function renderOnboarding(){
+  return `<div class="card">
+    <h2>Bienvenue 👋</h2>
+    <p style="margin:6px 0 12px;color:var(--muted)">Ton tableau de bord se remplira dès que tu saisiras des données. Pour démarrer :</p>
+    <ol style="margin:0;padding-left:18px;line-height:1.9">
+      <li>Va dans <b>Réglages</b> et entre ta config (TH, EE, ligue, budget).</li>
+      <li>Fais une <b>baseline passive</b> (bot OFF) : clique <b>Miner Service</b> chaque jour + saisis une <b>Journée</b>.</li>
+      <li>À chaque bloc gagné, ajoute un <b>Bloc</b> (&lt; 15 s). Le mardi, saisis le <b>Payout</b>.</li>
+      <li>Consulte l'onglet <b>🎯 Plan</b> pour la stratégie complète.</li>
+    </ol>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn blue" onclick="switchTab('reglages')">⚙️ Réglages</button>
+      <button class="btn accent" onclick="switchTab('plan')">🎯 Voir le Plan</button>
+    </div>
+  </div>`;
+}
+
 function renderDashboard(){
+  const c = document.getElementById("dashContent");
+  if(!entries.length){ c.innerHTML = renderOnboarding(); return; }
   const debut = debutCycle(new Date());
   const s = statsCycle(debut);
-  const c = document.getElementById("dashContent");
   const finTxt = new Date(finCycle(debut)).toLocaleDateString("fr-CA",{day:"2-digit",month:"short"});
   const debTxt = debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"});
 
@@ -964,8 +983,8 @@ function renderDashboard(){
     <div class="grid">
       <div class="stat"><div class="label">GMT dépensés</div><div class="val">${fmtNum(s.depGmt,1)}</div><div class="sub">${fmtUSD(s.depUSD)}</div></div>
       <div class="stat"><div class="label">Gains (GMT+BTC)</div><div class="val">${fmtUSD(s.gainsUSD)}${prev?deltaBadge(s.gainsUSD,prev.gainsUSD):''}</div><div class="sub">${fmtNum(s.gmtGagnes,1)} GMT · ${fmtNum(s.satsGagnes)} sats</div></div>
-      <div class="stat"><div class="label">ROI spells du cycle</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}${prev?deltaBadge(s.roiUSD,prev.roiUSD):''}</div><div class="sub">gains − dépenses (hors OPEX)</div></div>
-      <div class="stat"><div class="label">Net absolu</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}${prev?deltaBadge(s.netAbsoluUSD,prev.netAbsoluUSD):''}</div><div class="sub">après OPEX (${fmtNum(s.opexGmt,0)} GMT)</div></div>
+      <div class="stat"><div class="label" title="Gains − dépenses de spells, hors OPEX. La métrique pour juger le bot vs passif.">ROI spells du cycle ⓘ</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}${prev?deltaBadge(s.roiUSD,prev.roiUSD):''}</div><div class="sub">gains − dépenses (hors OPEX)</div></div>
+      <div class="stat"><div class="label" title="Gains − dépenses − OPEX (élec./maintenance). « Est-ce que je gagne de l'argent tout court ».">Net absolu ⓘ</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}${prev?deltaBadge(s.netAbsoluUSD,prev.netAbsoluUSD):''}</div><div class="sub">après OPEX (${fmtNum(s.opexGmt,0)} GMT)</div></div>
       <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}${prev?deltaBadge(s.nbBlocs,prev.nbBlocs):''}</div><div class="sub">ce cycle</div></div>
     </div>
     ${!s.aPayout && s.nbBlocs ? '<small class="muted">⏳ Gains provisoires (estimés via les blocs — pas encore de payout ce cycle).</small>' : ''}
@@ -977,7 +996,7 @@ function renderDashboard(){
     <div class="grid">
       <div class="stat"><div class="label">Sats moyens / bloc</div><div class="val">${fmtNum(s.satsMoy)}</div></div>
       <div class="stat"><div class="label">GMT perso moyen / bloc</div><div class="val">${fmtNum(s.gmtBlocMoy,2)}</div></div>
-      <div class="stat"><div class="label">Coût GMT / bloc</div><div class="val">${fmtNum(s.coutGmtParBloc,1)}</div><div class="sub">dépenses ÷ blocs</div></div>
+      <div class="stat"><div class="label" title="Dépenses GMT du cycle ÷ nombre de blocs gagnés.">Coût GMT / bloc ⓘ</div><div class="val">${fmtNum(s.coutGmtParBloc,1)}</div><div class="sub">dépenses ÷ blocs</div></div>
       <div class="stat"><div class="label">Budget bot restant</div><div class="val">${fmtNum((config.budgetBotCycle||0) - s.jours.reduce((a,e)=>a+e.gmtDepenseBot,0),1)}</div><div class="sub">GMT sur ${fmtNum(config.budgetBotCycle||0)}</div></div>
     </div>
   </div>`;
@@ -1043,7 +1062,7 @@ function renderEV(){
   const note = aReel
     ? "Basé sur le GMT réellement dépensé par multiplicateur (Config bot), pertes incluses. > 1× = profitable."
     : "⚠️ Approximation au prorata des blocs (aucune Config bot saisie). Ajoute une « Config bot » pour une EV fiable.";
-  return `<div class="card"><h2>EV par multiplicateur</h2><div class="grid">${rows}</div>
+  return `<div class="card"><h2 title="Gains ÷ GMT dépensé, par multiplicateur. > 1× = profitable.">EV par multiplicateur ⓘ</h2><div class="grid">${rows}</div>
     <small class="muted">${note}</small></div>`;
 }
 
