@@ -65,12 +65,13 @@
   header .prix b{color:var(--text);}
 
   /* ============ CARTES ============ */
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow);}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .stat{background:var(--surface2);border-radius:12px;padding:13px 14px;}
-  .stat .label{font-size:.72rem;color:var(--muted);margin-bottom:4px;}
-  .stat .val{font-size:1.25rem;font-weight:700;}
-  .stat .sub{font-size:.72rem;color:var(--muted);margin-top:2px;}
+  .card{background:var(--surface);border:none;border-radius:var(--radius);padding:20px 22px;margin-bottom:16px;box-shadow:var(--shadow);}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px 26px;}
+  /* Cellules KPI ouvertes (pas de boîte remplie) — hiérarchie par la typo, pas par des cadres */
+  .stat{padding:0;}
+  .stat .label{font-size:.7rem;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
+  .stat .val{font-size:1.6rem;font-weight:750;line-height:1.02;letter-spacing:-.015em;}
+  .stat .sub{font-size:.72rem;color:var(--faint);margin-top:7px;line-height:1.35;}
   .pos{color:var(--green);} .neg{color:var(--red);}
 
   /* ============ BOUTONS ============ */
