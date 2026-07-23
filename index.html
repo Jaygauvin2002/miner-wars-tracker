@@ -22,27 +22,34 @@
 <style>
   /* ============ THÈME SOMBRE / VARIABLES ============ */
   :root{
-    --bg:#0e0f13;
-    --surface:#171a21;
-    --surface2:#1e222c;
-    --border:#2a2f3a;
-    --text:#e7e9ee;
-    --muted:#9aa3b2;
-    --accent:#f0b90b;      /* jaune GoMining */
-    --accent2:#3b82f6;
-    --green:#22c55e;
-    --red:#ef4444;
-    --radius:14px;
+    --bg:#101219;          /* midnight blue-grey, pas noir pur */
+    --surface:#181b24;     /* cartes */
+    --surface2:#1f232e;    /* tuiles */
+    --surface3:#262b38;    /* survol / élévation */
+    --border:#252a36;      /* bordure discrète, faible contraste */
+    --text:#dde1ea;        /* off-white doux — moins de glare */
+    --muted:#98a1b3;
+    --faint:#6f7789;
+    --accent:#ecb63f;      /* or GoMining adouci */
+    --accent2:#5b9bf2;     /* bleu adouci */
+    --green:#40cf87;       /* vert calme */
+    --red:#f0736f;         /* rouge moins agressif */
+    --radius:16px;
+    --shadow:0 1px 2px rgba(0,0,0,.28), 0 8px 24px -14px rgba(0,0,0,.6);
     --safe-bottom:env(safe-area-inset-bottom, 0px);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
     background:var(--bg);
+    background-image:radial-gradient(1100px 520px at 78% -8%, #1a1f2d 0%, rgba(26,31,45,0) 60%);
+    background-attachment:fixed;
     color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     font-size:16px;
-    line-height:1.4;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
     padding-bottom:calc(74px + var(--safe-bottom)); /* espace pour la barre d'onglets */
     -webkit-text-size-adjust:100%;
   }
@@ -58,9 +65,9 @@
   header .prix b{color:var(--text);}
 
   /* ============ CARTES ============ */
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:12px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow);}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-  .stat{background:var(--surface2);border-radius:12px;padding:12px;}
+  .stat{background:var(--surface2);border-radius:12px;padding:13px 14px;}
   .stat .label{font-size:.72rem;color:var(--muted);margin-bottom:4px;}
   .stat .val{font-size:1.25rem;font-weight:700;}
   .stat .sub{font-size:.72rem;color:var(--muted);margin-top:2px;}
@@ -197,6 +204,25 @@
   details.detail[open]>summary::before{content:"▾ ";}
   details.detail .val{font-size:1.05rem;}
   @media (max-width:900px){ .hero-grid,.two-col{grid-template-columns:1fr;} }
+
+  /* ============ POLISH VISUEL (Dark OLED doux) ============ */
+  .val,.verdict-big,.cmp-val,.stat .val,table.cyc td,.prix b{font-variant-numeric:tabular-nums;}
+  .card.hero{box-shadow:0 1px 2px rgba(0,0,0,.28), 0 12px 34px -18px rgba(236,182,63,.35);}
+  .hero.pos{box-shadow:0 1px 2px rgba(0,0,0,.28), 0 12px 34px -18px rgba(64,207,135,.42);}
+  .hero.neg{box-shadow:0 1px 2px rgba(0,0,0,.28), 0 12px 34px -18px rgba(240,115,111,.35);}
+  nav button,.filters button,.btn,.acts button{transition:background-color .18s ease, color .18s ease, border-color .18s ease, filter .18s ease, transform .1s ease;}
+  .filters button:hover{background:var(--surface3);color:var(--text);}
+  .btn:hover{filter:brightness(1.08);}
+  .btn:active{transform:translateY(1px);}
+  .acts button:hover{background:var(--surface3);}
+  .item{transition:border-color .18s ease;}
+  .item:hover{border-color:var(--surface3);}
+  table.cyc tbody tr{transition:background-color .15s ease;}
+  ::-webkit-scrollbar{width:11px;height:11px;}
+  ::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:7px;border:2px solid var(--bg);}
+  ::-webkit-scrollbar-thumb:hover{background:#333a49;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  @media (prefers-reduced-motion: reduce){ *{animation-duration:.001ms!important;transition-duration:.001ms!important;} }
 
   /* ============ OPTIMISATION DESKTOP / MACBOOK (≥ 861px) ============
      Bloc additif : sur grand écran on abandonne le modèle mobile
@@ -1171,8 +1197,8 @@ function renderGraphiques(){
       '<div class="warn">Chart.js indisponible (hors-ligne au premier lancement). Reconnecte-toi puis reviens.</div>';
     return;
   }
-  Chart.defaults.color = "#9aa3b2";
-  Chart.defaults.borderColor = "#2a2f3a";
+  Chart.defaults.color = "#98a1b3";
+  Chart.defaults.borderColor = "#252a36";
   Chart.defaults.font.family = "-apple-system,sans-serif";
 
   // 1) Barres : blocs par multiplicateur
@@ -1181,7 +1207,7 @@ function renderGraphiques(){
   charts.mult = new Chart(document.getElementById("chMult"), {
     type:"bar",
     data:{ labels: MULTIS.map(m=>"x"+m),
-      datasets:[{ label:"Blocs", data:parMult, backgroundColor:"#f0b90b", borderRadius:6 }] },
+      datasets:[{ label:"Blocs", data:parMult, backgroundColor:"#ecb63f", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
@@ -1201,8 +1227,8 @@ function renderGraphiques(){
   charts.cumul = new Chart(document.getElementById("chCumul"), {
     type:"line",
     data:{ labels, datasets:[
-      { label:"Gains", data:serieG, borderColor:"#22c55e", backgroundColor:"transparent", tension:.25, pointRadius:0 },
-      { label:"Dépenses", data:serieD, borderColor:"#ef4444", backgroundColor:"transparent", tension:.25, pointRadius:0 } ] },
+      { label:"Gains", data:serieG, borderColor:"#40cf87", backgroundColor:"transparent", tension:.25, pointRadius:0 },
+      { label:"Dépenses", data:serieD, borderColor:"#f0736f", backgroundColor:"transparent", tension:.25, pointRadius:0 } ] },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{legend:{labels:{boxWidth:12}}}, scales:{y:{beginAtZero:true}} }
   });
@@ -1214,7 +1240,7 @@ function renderGraphiques(){
     type:"line",
     data:{ labels: jours.map(e=>new Date(e.date).toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"})),
       datasets:[{ label:"Solde bot (GMT)", data: jours.map(e=>e.soldeBot),
-        borderColor:"#3b82f6", backgroundColor:"rgba(59,130,246,.12)", fill:true, tension:.25, pointRadius:2 }] },
+        borderColor:"#5b9bf2", backgroundColor:"rgba(91,155,242,.14)", fill:true, tension:.25, pointRadius:2 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:false}} }
   });
 
@@ -1229,7 +1255,7 @@ function renderGraphiques(){
   charts.blocsJour = new Chart(document.getElementById("chBlocsJour"), {
     type:"bar",
     data:{ labels: joursTri.map(k=> new Date(k+"T00:00").toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"})),
-      datasets:[{ label:"Blocs", data: joursTri.map(k=>parJour[k]), backgroundColor:"#22c55e", borderRadius:6 }] },
+      datasets:[{ label:"Blocs", data: joursTri.map(k=>parJour[k]), backgroundColor:"#40cf87", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
 
@@ -1244,7 +1270,7 @@ function renderGraphiques(){
   charts.blocsCycle = new Chart(document.getElementById("chBlocsCycle"), {
     type:"bar",
     data:{ labels: cyclesTri.map(k=> "Sem. " + new Date(k+"T00:00").toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"})),
-      datasets:[{ label:"Blocs", data: cyclesTri.map(k=>parCycleB[k]), backgroundColor:"#f0b90b", borderRadius:6 }] },
+      datasets:[{ label:"Blocs", data: cyclesTri.map(k=>parCycleB[k]), backgroundColor:"#ecb63f", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
 
@@ -1259,9 +1285,9 @@ function renderGraphiques(){
     type:"bar",
     data:{ labels: labelsCycle, datasets:[
       { label:"ROI", data: roiVals, order:2,
-        backgroundColor: roiVals.map(v=> v>=1 ? "#22c55e" : "#ef4444"), borderRadius:6 },
+        backgroundColor: roiVals.map(v=> v>=1 ? "#40cf87" : "#f0736f"), borderRadius:6 },
       { type:"line", label:"Seuil 1× (rentable)", data: roiVals.map(()=>1), order:1,
-        borderColor:"#9aa3b2", borderDash:[5,4], borderWidth:1.5, pointRadius:0 } ] },
+        borderColor:"#98a1b3", borderDash:[5,4], borderWidth:1.5, pointRadius:0 } ] },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:true, labels:{boxWidth:12}}, tooltip:{callbacks:{label:(ctx)=> ctx.datasetIndex===0 ? ctx.parsed.y.toFixed(2)+"×" : "seuil 1.00×"}}},
       scales:{y:{beginAtZero:true}} }
@@ -1272,8 +1298,8 @@ function renderGraphiques(){
   charts.gainsDep = new Chart(document.getElementById("chGainsDep"), {
     type:"bar",
     data:{ labels: labelsCycle, datasets:[
-      { label:"Gains", data: cyc2.map(c2=> +c2.s.gainsUSD.toFixed(2)), backgroundColor:"#22c55e", borderRadius:4 },
-      { label:"Dépenses", data: cyc2.map(c2=> +c2.s.depUSD.toFixed(2)), backgroundColor:"#ef4444", borderRadius:4 } ] },
+      { label:"Gains", data: cyc2.map(c2=> +c2.s.gainsUSD.toFixed(2)), backgroundColor:"#40cf87", borderRadius:4 },
+      { label:"Dépenses", data: cyc2.map(c2=> +c2.s.depUSD.toFixed(2)), backgroundColor:"#f0736f", borderRadius:4 } ] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{boxWidth:12}}}, scales:{y:{beginAtZero:true}} }
   });
 
@@ -1288,7 +1314,7 @@ function renderGraphiques(){
   detruireChart("durees");
   charts.durees = new Chart(document.getElementById("chDurees"), {
     type:"bar",
-    data:{ labels: trLabels, datasets:[{ label:"Rounds", data: trCounts, backgroundColor:"#3b82f6", borderRadius:6 }] },
+    data:{ labels: trLabels, datasets:[{ label:"Rounds", data: trCounts, backgroundColor:"#5b9bf2", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
 }
