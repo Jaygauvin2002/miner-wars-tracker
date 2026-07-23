@@ -847,6 +847,63 @@ function renderTableauCycles(){
   </div>`;
 }
 
+// Observations automatiques : traduit les données en phrases actionnables.
+function renderObservations(){
+  const cy = tousLesCycles();
+  const blocs = entries.filter(e=>e.type==="bloc");
+  const obs = [];
+
+  // Budget presque épuisé (cycle courant)
+  const cur = statsCycle(debutCycle(new Date()));
+  const depBot = cur.jours.reduce((a,e)=>a+e.gmtDepenseBot,0);
+  if(config.budgetBotCycle>0 && depBot >= config.budgetBotCycle*0.9)
+    obs.push({t:'warn', m:`Budget bot du cycle à ${Math.round(depBot/config.budgetBotCycle*100)} % (${fmtNum(depBot,0)}/${fmtNum(config.budgetBotCycle,0)} GMT) — il va bientôt s'arrêter.`});
+
+  // Net absolu négatif sur les 3 derniers cycles
+  const der = cy.slice(-3);
+  if(der.length>=2 && der.every(c2=>c2.s.netAbsoluUSD<0))
+    obs.push({t:'warn', m:`Net absolu négatif sur tes ${der.length} derniers cycles — tu paies plus que tu ne gagnes (OPEX inclus).`});
+
+  // Jours depuis le dernier bloc
+  if(blocs.length){
+    const last = blocs.reduce((a,e)=> new Date(e.date)>new Date(a.date)?e:a);
+    const j = Math.floor((minuit(new Date()) - minuit(last.date))/86400000);
+    if(j>=2) obs.push({t:'warn', m:`Aucun bloc gagné depuis ${j} jours.`});
+  }
+
+  // Meilleur cycle par ROI + tendance
+  const withRoi = cy.filter(c2=>c2.s.depUSD>0).map(c2=>({c:c2, roi:c2.s.gainsUSD/c2.s.depUSD}));
+  if(withRoi.length){
+    const best = withRoi.reduce((a,b)=> b.roi>a.roi?b:a);
+    obs.push({t:'good', m:`Meilleur cycle : ${best.c.debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})} à ${best.roi.toFixed(2)}× de ROI.`});
+    const rec = withRoi.slice(-3);
+    if(rec.length>=2){
+      const up = rec[rec.length-1].roi >= rec[0].roi;
+      obs.push({t: up?'good':'warn', m:`ROI ${up?'en hausse':'en baisse'} sur les ${rec.length} derniers cycles boostés.`});
+    }
+  }
+
+  // Multiplicateur moyen gagné
+  if(blocs.length){
+    const moy = blocs.reduce((a,e)=>a+e.multiplicateur,0)/blocs.length;
+    obs.push({t:'info', m:`Multiplicateur moyen de tes blocs gagnés : x${moy.toFixed(1)} (${blocs.length} bloc${blocs.length>1?'s':''}).`});
+  } else {
+    obs.push({t:'info', m:"Aucun bloc saisi — commence par la baseline passive (bot OFF)."});
+  }
+
+  // Rappel baseline
+  if(!config.passiveCycleStart)
+    obs.push({t:'info', m:"Aucun cycle passif de référence marqué (Réglages) — indispensable pour mesurer l'effet du bot."});
+
+  if(!obs.length) return "";
+  const icon = t=> t==='good'?'✅':t==='warn'?'⚠️':'💡';
+  const col  = t=> t==='good'?'var(--green)':t==='warn'?'var(--red)':'var(--muted)';
+  return `<div class="card"><h2>Observations</h2>
+    <ul style="list-style:none;padding:0;margin:6px 0 0;font-size:.92rem">
+      ${obs.map((o,i)=>`<li style="padding:7px 0;${i<obs.length-1?'border-bottom:1px solid var(--border)':''}"><span style="color:${col(o.t)}">${icon(o.t)}</span> ${o.m}</li>`).join("")}
+    </ul></div>`;
+}
+
 function renderDashboard(){
   const debut = debutCycle(new Date());
   const s = statsCycle(debut);
@@ -863,6 +920,7 @@ function renderDashboard(){
   if(!prix){ html += `<div class="warn">Prix indisponibles (hors-ligne). Les conversions USD sont à zéro jusqu'au retour du réseau.</div>`; }
 
   html += renderApercu();
+  html += renderObservations();
 
   html += `<div class="card">
     <h2>Cycle courant — ${debTxt} → ${finTxt}${prev?' <small class="muted" style="text-transform:none;letter-spacing:0">· ▲▼ vs cycle précédent</small>':''}</h2>
