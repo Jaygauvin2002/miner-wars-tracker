@@ -589,8 +589,9 @@ function ouvrirForm(type, id){
     html += `<label>Multiplicateur</label><div class="mult-grid" id="multGrid">`;
     MULTIS.forEach(mx=> html += `<button type="button" data-m="${mx}" class="${multChoisi===mx?'sel':''}" onclick="choisirMult(${mx})">x${mx}</button>`);
     html += `</div>`;
-    html += champ("Récompense clan TOTALE du bloc (sats)", `<input type="number" inputmode="numeric" id="f_sats" value="${e? e.btcSats : ''}">`);
-    html += champ("Bloc perso (GMT)", `<input type="number" inputmode="decimal" id="f_gmtperso" value="${e? e.gmtPerso : ''}">`);
+    html += `<small class="muted">💡 Montants <b>approximatifs</b> affichés en jeu — le vrai total est figé au <b>payout du mardi</b>. Saisis l'estimation ; le ROI se recalera sur le payout.</small>`;
+    html += champ("Récompense clan estimée (sats)", `<input type="number" inputmode="numeric" id="f_sats" value="${e? e.btcSats : ''}">`);
+    html += champ("Bloc perso estimé (GMT)", `<input type="number" inputmode="decimal" id="f_gmtperso" value="${e? e.gmtPerso : ''}">`);
     html += champ("Spells actifs", `<input type="text" id="f_spells" value="${e? escAttr(e.spellsActifs) : ''}">`);
     html += champ("Durée de la ronde (min, optionnel)", `<input type="number" inputmode="numeric" id="f_duree" value="${e&&e.dureeRondeMin? e.dureeRondeMin : ''}">`);
   }
@@ -987,8 +988,8 @@ function renderDashboard(){
       <div class="stat"><div class="label" title="Gains − dépenses − OPEX (élec./maintenance). « Est-ce que je gagne de l'argent tout court ».">Net absolu ⓘ</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}${prev?deltaBadge(s.netAbsoluUSD,prev.netAbsoluUSD):''}</div><div class="sub">après OPEX (${fmtNum(s.opexGmt,0)} GMT)</div></div>
       <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}${prev?deltaBadge(s.nbBlocs,prev.nbBlocs):''}</div><div class="sub">ce cycle</div></div>
     </div>
-    ${!s.aPayout && s.nbBlocs ? '<small class="muted">⏳ Gains provisoires (estimés via les blocs — pas encore de payout ce cycle).</small>' : ''}
-    ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats saisis en blocs vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} sats au payout — le ROI se base sur le payout.</small>` : ''}
+    ${!s.aPayout && s.nbBlocs ? '<small class="muted">⏳ Gains provisoires — estimations des blocs (montants approximatifs du jeu). Le vrai total sera figé au payout du mardi.</small>' : ''}
+    ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats <b>estimés</b> (blocs) vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} sats <b>réels</b> (payout) — normal que ça diffère, le ROI se base sur le payout.</small>` : ''}
   </div>`;
 
   html += `<div class="card">
