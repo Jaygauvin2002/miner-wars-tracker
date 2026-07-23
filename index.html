@@ -585,7 +585,9 @@ function spellIcon(name, size){
   size = size||26;
   const bg = F.shape==='hex' ? '<path d="M7 2.5H17L22.3 12 17 21.5H7L1.7 12Z"/>' : '<circle cx="12" cy="12" r="10.7"/>';
   return `<svg class="spico" viewBox="0 0 24 24" width="${size}" height="${size}">
-    <g fill="${F.c}" stroke="rgba(0,0,0,.28)" stroke-width="1">${bg}</g>
+    <defs><linearGradient id="spGloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".4"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    <g fill="${F.c}" stroke="rgba(0,0,0,.32)" stroke-width="1" stroke-linejoin="round">${bg}</g>
+    <g fill="url(#spGloss)" stroke="none">${bg}</g>
     <g fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6 6) scale(.5)">${F.sym}</g>
   </svg>`;
 }
