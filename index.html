@@ -774,6 +774,39 @@ function statsCycle(debut){
   return { es, jours, blocs, payouts, aPayout, depGmt, opexGmt, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
+// Tous les cycles présents dans les données, du plus ancien au plus récent.
+function tousLesCycles(){
+  const keys = [...new Set(entries.map(e=>cleCycle(e.date)))].sort();
+  return keys.map(k=> ({ key:k, debut:minuit(k), s:statsCycle(minuit(k)) }));
+}
+// Petit indicateur de tendance ▲/▼ coloré vs une valeur précédente.
+function deltaBadge(cur, prev){
+  if(prev==null || Math.abs(cur-prev)<1e-9) return "";
+  const up = cur>prev;
+  return ` <span style="font-size:.7em;vertical-align:middle;color:${up?'var(--green)':'var(--red)'}">${up?'▲':'▼'}</span>`;
+}
+// Bande "Vue d'ensemble" : KPIs cumulés depuis le début.
+function renderApercu(){
+  const cy = tousLesCycles();
+  if(!cy.length) return "";
+  const tot = cy.reduce((a,c2)=>{ a.blocs+=c2.s.nbBlocs; a.depGmt+=c2.s.depGmt; a.gainsUSD+=c2.s.gainsUSD; a.depUSD+=c2.s.depUSD; a.netAbs+=c2.s.netAbsoluUSD; return a; }, {blocs:0,depGmt:0,gainsUSD:0,depUSD:0,netAbs:0});
+  const net = tot.gainsUSD - tot.depUSD;
+  const roi = tot.depUSD>0 ? tot.gainsUSD/tot.depUSD : 0;
+  const meilleur = entries.filter(e=>e.type==="bloc").reduce((m,e)=> Math.max(m, e.btcSats||0), 0);
+  return `<div class="card">
+    <h2>Vue d'ensemble — ${cy.length} cycle${cy.length>1?'s':''} suivis</h2>
+    <div class="grid">
+      <div class="stat"><div class="label">Blocs gagnés (total)</div><div class="val">${tot.blocs}</div></div>
+      <div class="stat"><div class="label">Gains totaux</div><div class="val">${fmtUSD(tot.gainsUSD)}</div></div>
+      <div class="stat"><div class="label">Dépenses totales</div><div class="val">${fmtUSD(tot.depUSD)}</div><div class="sub">${fmtNum(tot.depGmt,0)} GMT</div></div>
+      <div class="stat"><div class="label">Net spells</div><div class="val ${net>=0?'pos':'neg'}">${fmtUSD(net)}</div></div>
+      <div class="stat"><div class="label">ROI global</div><div class="val ${roi>=1?'pos':'neg'}">${tot.depUSD>0?roi.toFixed(2)+"×":"—"}</div></div>
+      <div class="stat"><div class="label">Net absolu</div><div class="val ${tot.netAbs>=0?'pos':'neg'}">${fmtUSD(tot.netAbs)}</div><div class="sub">après OPEX</div></div>
+      <div class="stat"><div class="label">Meilleur bloc</div><div class="val">${fmtNum(meilleur)}</div><div class="sub">sats</div></div>
+    </div>
+  </div>`;
+}
+
 function renderDashboard(){
   const debut = debutCycle(new Date());
   const s = statsCycle(debut);
@@ -781,17 +814,24 @@ function renderDashboard(){
   const finTxt = new Date(finCycle(debut)).toLocaleDateString("fr-CA",{day:"2-digit",month:"short"});
   const debTxt = debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"});
 
+  // Cycle précédent (pour les deltas ▲/▼)
+  const cyc = tousLesCycles();
+  const idx = cyc.findIndex(c2=>c2.key===cleCycle(debut));
+  const prev = idx>0 ? cyc[idx-1].s : null;
+
   let html = "";
   if(!prix){ html += `<div class="warn">Prix indisponibles (hors-ligne). Les conversions USD sont à zéro jusqu'au retour du réseau.</div>`; }
 
+  html += renderApercu();
+
   html += `<div class="card">
-    <h2>Cycle courant — ${debTxt} → ${finTxt}</h2>
+    <h2>Cycle courant — ${debTxt} → ${finTxt}${prev?' <small class="muted" style="text-transform:none;letter-spacing:0">· ▲▼ vs cycle précédent</small>':''}</h2>
     <div class="grid">
       <div class="stat"><div class="label">GMT dépensés</div><div class="val">${fmtNum(s.depGmt,1)}</div><div class="sub">${fmtUSD(s.depUSD)}</div></div>
-      <div class="stat"><div class="label">Gains (GMT+BTC)</div><div class="val">${fmtUSD(s.gainsUSD)}</div><div class="sub">${fmtNum(s.gmtGagnes,1)} GMT · ${fmtNum(s.satsGagnes)} sats</div></div>
-      <div class="stat"><div class="label">ROI spells du cycle</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}</div><div class="sub">gains − dépenses (hors OPEX)</div></div>
-      <div class="stat"><div class="label">Net absolu</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}</div><div class="sub">après OPEX (${fmtNum(s.opexGmt,0)} GMT)</div></div>
-      <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}</div><div class="sub">ce cycle</div></div>
+      <div class="stat"><div class="label">Gains (GMT+BTC)</div><div class="val">${fmtUSD(s.gainsUSD)}${prev?deltaBadge(s.gainsUSD,prev.gainsUSD):''}</div><div class="sub">${fmtNum(s.gmtGagnes,1)} GMT · ${fmtNum(s.satsGagnes)} sats</div></div>
+      <div class="stat"><div class="label">ROI spells du cycle</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}${prev?deltaBadge(s.roiUSD,prev.roiUSD):''}</div><div class="sub">gains − dépenses (hors OPEX)</div></div>
+      <div class="stat"><div class="label">Net absolu</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}${prev?deltaBadge(s.netAbsoluUSD,prev.netAbsoluUSD):''}</div><div class="sub">après OPEX (${fmtNum(s.opexGmt,0)} GMT)</div></div>
+      <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}${prev?deltaBadge(s.nbBlocs,prev.nbBlocs):''}</div><div class="sub">ce cycle</div></div>
     </div>
     ${!s.aPayout && s.nbBlocs ? '<small class="muted">⏳ Gains provisoires (estimés via les blocs — pas encore de payout ce cycle).</small>' : ''}
     ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats saisis en blocs vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} sats au payout — le ROI se base sur le payout.</small>` : ''}
