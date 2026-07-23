@@ -847,6 +847,25 @@ function renderTableauCycles(){
   </div>`;
 }
 
+// Cadence : les taux (par jour / par cycle) plutôt que les totaux.
+function renderCadence(){
+  const blocs = entries.filter(e=>e.type==="bloc");
+  if(!entries.length) return "";
+  const first = Math.min(...entries.map(e=> minuit(e.date).getTime()));
+  const joursEcoules = Math.max(1, Math.round((minuit(new Date()).getTime() - first)/86400000) + 1);
+  const cy = tousLesCycles();
+  const nbCycles = cy.length || 1;
+  const totSats = cy.reduce((a,c2)=> a + c2.s.satsGagnes, 0);
+  const blocsJour = blocs.length / joursEcoules;
+  return `<div class="card"><h2>Cadence — sur ${joursEcoules} jour${joursEcoules>1?'s':''} suivis</h2>
+    <div class="grid">
+      <div class="stat"><div class="label">Blocs / jour</div><div class="val">${blocsJour.toFixed(2)}</div></div>
+      <div class="stat"><div class="label">Blocs / cycle</div><div class="val">${(blocs.length/nbCycles).toFixed(1)}</div></div>
+      <div class="stat"><div class="label">Sats / jour</div><div class="val">${fmtNum(totSats/joursEcoules)}</div></div>
+      <div class="stat"><div class="label">Projection blocs / mois</div><div class="val">${(blocsJour*30).toFixed(0)}</div><div class="sub">au rythme actuel</div></div>
+    </div></div>`;
+}
+
 // Observations automatiques : traduit les données en phrases actionnables.
 function renderObservations(){
   const cy = tousLesCycles();
@@ -920,6 +939,7 @@ function renderDashboard(){
   if(!prix){ html += `<div class="warn">Prix indisponibles (hors-ligne). Les conversions USD sont à zéro jusqu'au retour du réseau.</div>`; }
 
   html += renderApercu();
+  html += renderCadence();
   html += renderObservations();
 
   html += `<div class="card">
