@@ -154,6 +154,13 @@
   .streak-ok{color:var(--green);} .streak-todo{color:var(--red);}
   small{font-size:.72rem;}
   hr{border:none;border-top:1px solid var(--border);margin:14px 0;}
+  .table-wrap{overflow-x:auto;}
+  table.cyc{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:6px;}
+  table.cyc th,table.cyc td{text-align:right;padding:8px 6px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  table.cyc th{color:var(--muted);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.03em;}
+  table.cyc td:first-child,table.cyc th:first-child{text-align:left;}
+  table.cyc tbody tr:last-child td{border-bottom:none;}
+  table.cyc tbody tr:hover{background:var(--surface2);}
 
   /* ============ OPTIMISATION DESKTOP / MACBOOK (≥ 861px) ============
      Bloc additif : sur grand écran on abandonne le modèle mobile
@@ -470,7 +477,9 @@ function debutCycle(date){
 function finCycle(debut){ const f = new Date(debut); f.setDate(f.getDate()+6); f.setHours(23,59,59,999); return f; }
 
 // Clé texte d'un cycle (date ISO du mardi).
-function cleCycle(date){ return debutCycle(date).toISOString().slice(0,10); }
+function cleCycle(date){ const d = debutCycle(date); const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+// Reconstruit une Date LOCALE à partir d'une clé de cycle "YYYY-MM-DD" (évite le décalage UTC).
+function dateDeCle(k){ return new Date(k + "T00:00:00"); }
 
 // Entrées appartenant au cycle courant.
 function entreesDuCycle(debut){
@@ -777,7 +786,7 @@ function statsCycle(debut){
 // Tous les cycles présents dans les données, du plus ancien au plus récent.
 function tousLesCycles(){
   const keys = [...new Set(entries.map(e=>cleCycle(e.date)))].sort();
-  return keys.map(k=> ({ key:k, debut:minuit(k), s:statsCycle(minuit(k)) }));
+  return keys.map(k=> ({ key:k, debut:dateDeCle(k), s:statsCycle(dateDeCle(k)) }));
 }
 // Petit indicateur de tendance ▲/▼ coloré vs une valeur précédente.
 function deltaBadge(cur, prev){
@@ -804,6 +813,34 @@ function renderApercu(){
       <div class="stat"><div class="label">Net absolu</div><div class="val ${tot.netAbs>=0?'pos':'neg'}">${fmtUSD(tot.netAbs)}</div><div class="sub">après OPEX</div></div>
       <div class="stat"><div class="label">Meilleur bloc</div><div class="val">${fmtNum(meilleur)}</div><div class="sub">sats</div></div>
     </div>
+  </div>`;
+}
+
+// Tableau récapitulatif de tous les cycles (tendance dans le temps + vue tableau accessible).
+function renderTableauCycles(){
+  const cy = tousLesCycles();
+  if(!cy.length) return "";
+  const rows = cy.slice().reverse().map(c2=>{
+    const st = c2.s;
+    const passif = (st.depGmt||0) < 0.5;
+    const estRef = config.passiveCycleStart===c2.key;
+    const roi = st.depUSD>0 ? st.gainsUSD/st.depUSD : null;
+    const dateTxt = c2.debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"});
+    return `<tr>
+      <td>${dateTxt}${estRef?' <span class="muted">(réf.)</span>':''}</td>
+      <td>${passif?'<span class="muted">Passif</span>':'Boosté'}</td>
+      <td>${st.nbBlocs}</td>
+      <td>${fmtNum(st.depGmt,0)}</td>
+      <td>${fmtUSD(st.gainsUSD)}</td>
+      <td class="${roi==null?'':(roi>=1?'pos':'neg')}">${roi==null?'—':roi.toFixed(2)+'×'}</td>
+      <td class="${st.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(st.netAbsoluUSD)}</td>
+    </tr>`;
+  }).join("");
+  return `<div class="card"><h2>Historique des cycles</h2>
+    <div class="table-wrap"><table class="cyc">
+      <thead><tr><th>Cycle</th><th>Statut</th><th>Blocs</th><th>Dépense GMT</th><th>Gains</th><th>ROI</th><th>Net abs.</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
   </div>`;
 }
 
@@ -846,6 +883,9 @@ function renderDashboard(){
       <div class="stat"><div class="label">Budget bot restant</div><div class="val">${fmtNum((config.budgetBotCycle||0) - s.jours.reduce((a,e)=>a+e.gmtDepenseBot,0),1)}</div><div class="sub">GMT sur ${fmtNum(config.budgetBotCycle||0)}</div></div>
     </div>
   </div>`;
+
+  // Tableau récap de tous les cycles
+  html += renderTableauCycles();
 
   // Streak
   const { streak, faitAuj } = calcStreakService();
@@ -909,7 +949,7 @@ function renderEV(){
 /* Comparaison cycle passif de référence vs cycle courant. */
 function renderComparaisonPassif(debutCourant){
   if(!config.passiveCycleStart) return "";
-  const debutPassif = minuit(config.passiveCycleStart);
+  const debutPassif = dateDeCle(config.passiveCycleStart);
   const sP = statsCycle(debutPassif);
   const sC = statsCycle(debutCourant);
   const memeCycle = cleCycle(debutPassif)===cleCycle(debutCourant);
@@ -1079,7 +1119,7 @@ function remplirConfig(){
   document.getElementById("cfgPassif").checked = config.passiveCycleStart===cycleCourant;
   const info = document.getElementById("passifInfo");
   info.textContent = config.passiveCycleStart
-    ? "Cycle passif de référence : " + new Date(config.passiveCycleStart).toLocaleDateString("fr-CA",{day:"2-digit",month:"long",year:"numeric"})
+    ? "Cycle passif de référence : " + dateDeCle(config.passiveCycleStart).toLocaleDateString("fr-CA",{day:"2-digit",month:"long",year:"numeric"})
     : "Aucun cycle passif défini.";
 }
 function sauverConfig(){
@@ -1113,7 +1153,7 @@ function statsGlobales(){
     cycles[k] = cycles[k] || { cycle:k };
   });
   Object.keys(cycles).forEach(k=>{
-    const s = statsCycle(minuit(k));
+    const s = statsCycle(dateDeCle(k));
     // Vue par multiplicateur : dépense réelle + spells (Config bot) croisés aux gains (blocs)
     const cfgs = entries.filter(e=>e.type==="botcfg" && cleCycle(e.date)===k);
     const parMult = {};
