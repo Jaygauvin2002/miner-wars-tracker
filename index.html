@@ -231,6 +231,8 @@
   .ico{vertical-align:-3px;flex:none;}
   .spico{flex:none;vertical-align:-8px;}
   .spellicon{flex:none;display:inline-flex;}
+  .conv-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:2px;}
+  .conv-grid label{margin:0 0 5px;}
   .page-title{display:none;font-size:1.55rem;font-weight:750;letter-spacing:-.015em;color:var(--text);}
   .kicker{display:flex;align-items:center;gap:9px;}
   .kicker::before{content:"";width:14px;height:2px;border-radius:2px;background:var(--accent);flex:none;opacity:.9;}
@@ -350,6 +352,15 @@
       <button class="btn big" onclick="ouvrirForm('botcfg')"><svg class="btnico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16.01"/><line x1="16" y1="16" x2="16" y2="16.01"/></svg>Config bot</button>
     </div>
     <div class="card" id="rappelService"></div>
+    <div class="card">
+      <span class="kicker">Convertisseur</span>
+      <div class="conv-grid">
+        <div><label>Sats</label><input type="number" inputmode="numeric" id="convSats" placeholder="0" oninput="convertir('sats')"></div>
+        <div><label>GMT</label><input type="number" inputmode="decimal" id="convGmt" placeholder="0" oninput="convertir('gmt')"></div>
+        <div><label>USD</label><input type="number" inputmode="decimal" id="convUsd" placeholder="0" oninput="convertir('usd')"></div>
+      </div>
+      <small class="muted" id="convNote">Tape dans un champ, les autres se calculent (prix live).</small>
+    </div>
   </section>
 
   <!-- ======================= ONGLET : DASHBOARD ======================= -->
@@ -563,7 +574,7 @@ function ic(n, s){ s=s||16; return `<svg class="ico" width="${s}" height="${s}" 
 // Icône visuelle d'un sort (badge forme + couleur, façon jeu) — pour reconnaître/vérifier.
 // Familles = hexagone vert ; Power-up = cercle turbo orange ; Clan power-up = cercle bouclier bleu.
 const SPELL_ICONS = {
-  power:   {c:'#40cf87', shape:'hex',    sym:'<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>'},
+  power:   {c:'#40cf87', shape:'hex',    sym:'<path d="M12 2c2.8 2.5 4 6 4 9 0 2-.6 3.6-1.4 4.7H9.4C8.6 14.6 8 13 8 11c0-3 1.2-6.5 4-9z"/><path d="M8.6 15.7 6 19v2.6l3.4-2"/><path d="M15.4 15.7 18 19v2.6l-3.4-2"/><circle cx="12" cy="10" r="1.4"/>'},
   instant: {c:'#40cf87', shape:'hex',    sym:'<path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/>'},
   echo:    {c:'#40cf87', shape:'hex',    sym:'<path d="M6 2h12M6 22h12M8 2c0 4 8 6 8 10s-8 6-8 10M16 2c0 4-8 6-8 10s8 6 8 10"/>'},
   focus:   {c:'#40cf87', shape:'hex',    sym:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>'},
@@ -583,12 +594,12 @@ function spellKey(name){
 function spellIcon(name, size){
   const F = SPELL_ICONS[spellKey(name)]; if(!F) return '';
   size = size||26;
-  const bg = F.shape==='hex' ? '<path d="M7 2.5H17L22.3 12 17 21.5H7L1.7 12Z"/>' : '<circle cx="12" cy="12" r="10.7"/>';
+  const bg = F.shape==='hex' ? '<path d="M7.7 3.4H16.3L20.9 12 16.3 20.6H7.7L3.1 12Z"/>' : '<circle cx="12" cy="12" r="10.2"/>';
   return `<svg class="spico" viewBox="0 0 24 24" width="${size}" height="${size}">
-    <defs><linearGradient id="spGloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".4"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
-    <g fill="${F.c}" stroke="rgba(0,0,0,.32)" stroke-width="1" stroke-linejoin="round">${bg}</g>
+    <defs><linearGradient id="spGloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".48"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    <g fill="${F.c}" stroke="${F.c}" stroke-width="2.6" stroke-linejoin="round">${bg}</g>
     <g fill="url(#spGloss)" stroke="none">${bg}</g>
-    <g fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" transform="translate(6 6) scale(.5)">${F.sym}</g>
+    <g fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(6 6) scale(.5)">${F.sym}</g>
   </svg>`;
 }
 const SATS_PAR_BTC = 100000000;             // 1 BTC = 100 000 000 sats
@@ -683,6 +694,27 @@ function afficherPrix(){
   const vieux = (Date.now() - prix.ts) > CACHE_PRIX_MS;
   box.innerHTML = `GMT <b>${fmtUSD(prix.gomining)}</b><br>BTC <b>${fmtUSD(prix.bitcoin)}</b>` +
                   `<br><small${vieux?' style="color:var(--red)"':''}>maj il y a ${age} min</small>`;
+  majConvNote();
+}
+
+// Convertisseur Sats ↔ GMT ↔ USD (USD comme pivot, via les prix live).
+function convertir(src){
+  const note = document.getElementById("convNote");
+  if(!prix){ if(note) note.textContent = "Prix indisponibles (hors-ligne)."; return; }
+  const btc = prix.bitcoin, gmtP = prix.gomining;
+  const sEl=document.getElementById("convSats"), gEl=document.getElementById("convGmt"), uEl=document.getElementById("convUsd");
+  let usd = 0;
+  if(src==='sats'){ usd = (parseFloat(sEl.value)||0)/SATS_PAR_BTC*btc; gEl.value = gmtP ? +(usd/gmtP).toFixed(2) : ''; uEl.value = +usd.toFixed(2); }
+  else if(src==='gmt'){ usd = (parseFloat(gEl.value)||0)*gmtP; sEl.value = btc ? Math.round(usd/btc*SATS_PAR_BTC) : ''; uEl.value = +usd.toFixed(2); }
+  else if(src==='usd'){ usd = parseFloat(uEl.value)||0; sEl.value = btc ? Math.round(usd/btc*SATS_PAR_BTC) : ''; gEl.value = gmtP ? +(usd/gmtP).toFixed(2) : ''; }
+  majConvNote();
+}
+// Rappelle les taux courants sous le convertisseur.
+function majConvNote(){
+  const note = document.getElementById("convNote"); if(!note) return;
+  note.textContent = prix
+    ? `1 000 sats = ${fmtUSD(1000/SATS_PAR_BTC*prix.bitcoin)} · 1 GMT = ${fmtUSD(prix.gomining)}`
+    : "Prix indisponibles (hors-ligne).";
 }
 
 // Valeur USD de sats et de GMT (0 si prix indisponibles).
