@@ -1368,11 +1368,17 @@ function renderVerdict(){
   const kick = '<span class="kicker">Le verdict</span>';
   if(!prix) return `<div class="card hero">${kick}<div class="verdict-label">Verdict indisponible</div><div class="sub muted">Prix hors-ligne — reconnecte-toi.</div></div>`;
   const { passifs, boostes } = classerCycles();
-  if(!passifs.length) return `<div class="card hero">${kick}<div class="verdict-label">Données insuffisantes</div>
-    <p class="muted" style="margin:8px 0 12px;font-size:.9rem">Fais d'abord ≥ 1 cycle <b>passif</b> (bot OFF) : c'est ton point de comparaison. Sans lui, impossible de dire si booster paye.</p>
-    <button class="btn accent" style="width:auto;padding:10px 16px" onclick="switchTab('reglages')">Marquer un cycle passif</button></div>`;
-  if(!boostes.length) return `<div class="card hero">${kick}<div class="verdict-label">Active le bot pour comparer</div>
-    <p class="muted" style="margin-top:8px;font-size:.9rem">Tu as ${passifs.length} cycle(s) passif(s) de référence. Lance le Spell Bot un cycle pour voir s'il fait mieux.</p></div>`;
+  const CIBLE_PASSIFS = 3;   // baseline visé (décidé : 3 cycles passifs pour sortir de la chance)
+  if(passifs.length < CIBLE_PASSIFS){
+    const n = passifs.length, pct = Math.min(100, n/CIBLE_PASSIFS*100);
+    return `<div class="card hero">${kick}<div class="verdict-label">Baseline passive — ${n}/${CIBLE_PASSIFS}</div>
+      <p class="muted" style="margin:8px 0 10px;font-size:.9rem">${n===0
+        ? "Objectif : <b>3 cycles passifs complets</b> (bot OFF) avant de tester le bot, pour que ta moyenne ne dépende pas de la chance. Le cycle en cours compte dès que tu saisis son <b>payout du mardi</b>."
+        : `Continue en <b>passif</b> jusqu'à ${CIBLE_PASSIFS} cycles complets — chaque payout du mardi en valide un. Ensuite on lance le bot.`}</p>
+      <div class="progress" style="max-width:280px"><span style="width:${pct.toFixed(0)}%"></span></div></div>`;
+  }
+  if(!boostes.length) return `<div class="card hero">${kick}<div class="verdict-label">Baseline prête — lance le bot</div>
+    <p class="muted" style="margin-top:8px;font-size:.9rem">Tu as ${passifs.length} cycles passifs de référence. Lance le Spell Bot un cycle pour voir s'il fait mieux que le passif.</p></div>`;
   const roiP = moyenne(passifs.map(c=>c.s.roiUSD));
   const roiB = moyenne(boostes.map(c=>c.s.roiUSD));
   const diff = roiB - roiP;
