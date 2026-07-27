@@ -1164,6 +1164,7 @@ function renderDashboard(){
 
   html += renderVerdict();                                                                 // HERO — le verdict
   html += renderStripCycle(s, prev);                                                       // CE CYCLE
+  html += renderBreakeven();                                                               // SEUIL DE RENTABILITÉ
   html += `<div class="two-col">${renderParMultiplicateur()}${renderObservations()}</div>`; // POURQUOI (2 colonnes)
   html += renderTableauCycles();                                                           // TENDANCE
   html += `<details class="detail"><summary>Détail &amp; analyse long-terme</summary>
@@ -1192,6 +1193,42 @@ function renderStripCycle(s, prev){
     </div>
     ${!s.aPayout && s.nbBlocs ? `<small class="muted">${ic('clock',12)} Gains provisoires (estimations des blocs) — figés au payout du mardi.</small>` : ''}
     ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats estimés vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} réels (payout) — le ROI se base sur le payout.</small>` : ''}
+  </div>`;
+}
+
+/* Seuil de rentabilité : combien vaut un bloc, et combien de blocs pour rembourser
+   les dépenses de la semaine (avant le payout). */
+function renderBreakeven(){
+  const cur = statsCycle(debutCycle(new Date()));
+  // Valeur moyenne d'un bloc = gains réalisés (payouts) + estimés, sur tous les blocs saisis.
+  const cy = tousLesCycles();
+  let gTot=0, bTot=0, satsTot=0, gmtTot=0;
+  cy.forEach(c=>{ gTot+=c.s.gainsUSD; bTot+=c.s.nbBlocs; satsTot+=c.s.satsGagnes; gmtTot+=c.s.gmtGagnes; });
+  const valBloc = bTot>0 ? gTot/bTot : 0;
+
+  const depSpells = cur.depUSD;                 // GMT bot+manuel du cycle, en USD
+  const depTot    = cur.depUSD + cur.opexUSD;   // + OPEX
+  const cibleSpells = valBloc>0 && depSpells>0.01 ? Math.ceil(depSpells/valBloc) : (depSpells<=0.01?0:null);
+  const cibleTot    = valBloc>0 && depTot>0.01   ? Math.ceil(depTot/valBloc)    : null;
+  const K = cur.nbBlocs;
+
+  let phrase, cls='';
+  if(valBloc<=0){ phrase = "Saisis quelques blocs (et un payout) pour estimer la valeur d'un bloc."; }
+  else if(depSpells<=0.01){ phrase = "Cycle passif : aucune dépense de spells à rembourser — chaque bloc est du profit (hors OPEX)."; cls='pos'; }
+  else if(K>=cibleSpells){ phrase = `Even atteint : tes <b>${K}</b> bloc(s) couvrent tes ${fmtUSD(depSpells)} de dépenses de spells.`; cls='pos'; }
+  else { phrase = `Encore ~<b>${cibleSpells-K}</b> bloc(s) à gagner pour rembourser tes ${fmtUSD(depSpells)} de dépenses ce cycle.`; }
+
+  const pct = (cibleSpells && cibleSpells>0) ? Math.min(100, K/cibleSpells*100) : 0;
+  return `<div class="card"><span class="kicker">Seuil de rentabilité — cette semaine</span>
+    <div class="grid" style="margin-top:6px">
+      <div class="stat"><div class="label" title="Gains réalisés (payouts) + estimés ÷ nombre total de blocs saisis.">Un bloc rapporte ⓘ</div><div class="val">${valBloc>0?fmtUSD(valBloc):'—'}</div><div class="sub">${bTot>0?`~${fmtNum(satsTot/bTot)} sats · ${fmtNum(gmtTot/bTot,1)} GMT`:'pas encore de données'}</div></div>
+      <div class="stat"><div class="label">Dépense ce cycle</div><div class="val">${fmtUSD(depSpells)}</div><div class="sub">${fmtNum(cur.depGmt,0)} GMT${cur.opexGmt>0?` · +${fmtUSD(cur.opexUSD)} OPEX`:''}</div></div>
+      <div class="stat"><div class="label">Blocs pour être even</div><div class="val">${cibleSpells!=null?cibleSpells:'—'}</div><div class="sub">${cibleTot!=null?`${cibleTot} avec OPEX`:'sur les spells'}</div></div>
+      <div class="stat"><div class="label">Blocs gagnés</div><div class="val ${cls}">${K}${cibleSpells?` / ${cibleSpells}`:''}</div><div class="sub">ce cycle</div></div>
+    </div>
+    ${cibleSpells?`<div class="progress" style="margin-top:12px"><span style="width:${pct.toFixed(0)}%;background:${K>=cibleSpells?'var(--green)':'var(--accent)'}"></span></div>`:''}
+    <small class="muted" style="display:block;margin-top:10px">${phrase} <span style="color:var(--faint)">Valeur/bloc = moyenne sur ${bTot} bloc(s) ; avant le payout du mardi, les gains sont estimés.</span></small>
+    <small class="muted" style="display:block;margin-top:8px;border-top:1px solid var(--border);padding-top:10px">Généré <b>ce cycle</b> : ${fmtNum(cur.satsGagnes)} sats + ${fmtNum(cur.gmtGagnes,1)} GMT (≈ ${fmtUSD(cur.gainsUSD)}) &nbsp;·&nbsp; <b>depuis le début</b> : ${fmtNum(satsTot)} sats + ${fmtNum(gmtTot,1)} GMT (≈ ${fmtUSD(gTot)})</small>
   </div>`;
 }
 
