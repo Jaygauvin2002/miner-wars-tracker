@@ -623,33 +623,34 @@ let charts = {};
    OUTILS DATE / CYCLE  (cycle = mardi -> lundi inclus)
    ========================================================================== */
 
-// Retourne une date locale à minuit.
-function minuit(d){ const x = new Date(d); x.setHours(0,0,0,0); return x; }
+// GoMining tourne sur l'heure UTC (0 UTC = 20h heure de l'Est). On regroupe donc
+// journées ET cycles en UTC — sinon un bloc saisi le soir tombe dans la mauvaise journée.
+function minuit(d){ const x = new Date(d); return new Date(Date.UTC(x.getUTCFullYear(), x.getUTCMonth(), x.getUTCDate())); }
 
-// Début (mardi) du cycle contenant la date donnée.
+// Début (mardi 00:00 UTC) du cycle contenant la date donnée.
 function debutCycle(date){
-  const d = minuit(date);
-  const jour = d.getDay();               // 0=dim,1=lun,2=mar,...
-  // nombre de jours à reculer pour tomber sur le mardi (2)
-  const recul = (jour - 2 + 7) % 7;
-  d.setDate(d.getDate() - recul);
-  return d;
+  const d = new Date(date);
+  const recul = (d.getUTCDay() - 2 + 7) % 7;   // jours à reculer jusqu'au mardi (UTC : 2)
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - recul));
 }
-// Fin du cycle (lundi 23:59) = début + 6 jours.
-function finCycle(debut){ const f = new Date(debut); f.setDate(f.getDate()+6); f.setHours(23,59,59,999); return f; }
+// Fin d'AFFICHAGE du cycle (lundi) = début + 6 j. La fenêtre réelle va jusqu'à +7 j (exclusif).
+function finCycle(debut){ const f = new Date(debut); f.setUTCDate(f.getUTCDate() + 6); return f; }
 
-// Clé texte d'un cycle (date ISO du mardi).
-function cleCycle(date){ const d = debutCycle(date); const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
-// Reconstruit une Date LOCALE à partir d'une clé de cycle "YYYY-MM-DD" (évite le décalage UTC).
-function dateDeCle(k){ return new Date(k + "T00:00:00"); }
+// Clé texte d'un cycle = date UTC du mardi.
+function cleCycle(date){ return debutCycle(date).toISOString().slice(0,10); }
+// Reconstruit la Date (mardi 00:00 UTC) depuis une clé "YYYY-MM-DD".
+function dateDeCle(k){ return new Date(k + "T00:00:00Z"); }
 
-// Entrées appartenant au cycle courant.
+// Entrées du cycle : fenêtre [début, début + 7 j) en UTC.
 function entreesDuCycle(debut){
-  const fin = finCycle(debut);
-  return entries.filter(e => { const d = new Date(e.date); return d >= debut && d <= fin; });
+  const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
+  return entries.filter(e => { const d = new Date(e.date); return d >= debut && d < fin; });
 }
 
-// Formatage lisible.
+// Formatage d'une date de JOURNÉE/CYCLE en UTC (montre la vraie journée GoMining, pas l'heure locale).
+function fmtDateUTC(date, opts){ return new Date(date).toLocaleDateString("fr-CA", Object.assign({ timeZone:"UTC" }, opts||{})); }
+
+// Formatage d'un INSTANT en heure locale (quand l'action a été faite).
 function fmtDate(iso){
   const d = new Date(iso);
   return d.toLocaleDateString("fr-CA", { day:"2-digit", month:"short" }) + " " +
@@ -898,14 +899,14 @@ function calcStreakService(){
     parJour[k] = parJour[k] || e.serviceFait;
   });
   let streak = 0;
-  const d = minuit(new Date());
+  const d = minuit(new Date());          // aujourd'hui (journée GoMining = date UTC)
   const auj = d.toISOString().slice(0,10);
   const faitAuj = !!parJour[auj];
   // on commence à compter à partir d'aujourd'hui si fait, sinon d'hier
-  if(!faitAuj) d.setDate(d.getDate()-1);
+  if(!faitAuj) d.setUTCDate(d.getUTCDate()-1);
   while(true){
     const k = d.toISOString().slice(0,10);
-    if(parJour[k]){ streak++; d.setDate(d.getDate()-1); } else break;
+    if(parJour[k]){ streak++; d.setUTCDate(d.getUTCDate()-1); } else break;
   }
   return { streak, faitAuj };
 }
@@ -1028,7 +1029,7 @@ function renderTableauCycles(){
     const passif = (st.depGmt||0) < 0.5;
     const estRef = config.passiveCycleStart===c2.key;
     const roi = st.depUSD>0 ? st.gainsUSD/st.depUSD : null;
-    const dateTxt = c2.debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"});
+    const dateTxt = fmtDateUTC(c2.debut,{day:"2-digit",month:"short"});
     return `<tr>
       <td>${dateTxt}${estRef?' <span class="muted">(réf.)</span>':''}</td>
       <td>${passif?'<span class="muted">Passif</span>':'Boosté'}</td>
@@ -1094,7 +1095,7 @@ function renderObservations(){
   const withRoi = cy.filter(c2=>c2.s.depUSD>0).map(c2=>({c:c2, roi:c2.s.gainsUSD/c2.s.depUSD}));
   if(withRoi.length){
     const best = withRoi.reduce((a,b)=> b.roi>a.roi?b:a);
-    obs.push({t:'good', m:`Meilleur cycle : ${best.c.debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})} à ${best.roi.toFixed(2)}× de ROI.`});
+    obs.push({t:'good', m:`Meilleur cycle : ${fmtDateUTC(best.c.debut,{day:"2-digit",month:"short"})} à ${best.roi.toFixed(2)}× de ROI.`});
     const rec = withRoi.slice(-3);
     if(rec.length>=2){
       const up = rec[rec.length-1].roi >= rec[0].roi;
@@ -1150,8 +1151,8 @@ function renderDashboard(){
   if(!entries.length){ c.innerHTML = renderOnboarding(); return; }
   const debut = debutCycle(new Date());
   const s = statsCycle(debut);
-  const finTxt = new Date(finCycle(debut)).toLocaleDateString("fr-CA",{day:"2-digit",month:"short"});
-  const debTxt = debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"});
+  const finTxt = fmtDateUTC(finCycle(debut),{day:"2-digit",month:"short"});
+  const debTxt = fmtDateUTC(debut,{day:"2-digit",month:"short"});
 
   // Cycle précédent (pour les deltas ▲/▼)
   const cyc = tousLesCycles();
@@ -1374,7 +1375,7 @@ function renderGraphiques(){
   detruireChart("blocsJour");
   charts.blocsJour = new Chart(document.getElementById("chBlocsJour"), {
     type:"bar",
-    data:{ labels: joursTri.map(k=> new Date(k+"T00:00").toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"})),
+    data:{ labels: joursTri.map(k=> fmtDateUTC(k+"T00:00:00Z",{day:"2-digit",month:"2-digit"})),
       datasets:[{ label:"Blocs", data: joursTri.map(k=>parJour[k]), backgroundColor:"#40cf87", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
@@ -1389,14 +1390,14 @@ function renderGraphiques(){
   detruireChart("blocsCycle");
   charts.blocsCycle = new Chart(document.getElementById("chBlocsCycle"), {
     type:"bar",
-    data:{ labels: cyclesTri.map(k=> "Sem. " + new Date(k+"T00:00").toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"})),
+    data:{ labels: cyclesTri.map(k=> "Sem. " + fmtDateUTC(k+"T00:00:00Z",{day:"2-digit",month:"2-digit"})),
       datasets:[{ label:"Blocs", data: cyclesTri.map(k=>parCycleB[k]), backgroundColor:"#ecb63f", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
 
   // Données par cycle (réutilisées par 6, 7)
   const cyc2 = tousLesCycles();
-  const labelsCycle = cyc2.map(c2=> c2.debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"}));
+  const labelsCycle = cyc2.map(c2=> fmtDateUTC(c2.debut,{day:"2-digit",month:"2-digit"}));
 
   // 6) Barres : ROI par cycle (vert ≥ 1×, rouge < 1×)
   const roiVals = cyc2.map(c2=> c2.s.depUSD>0 ? +(c2.s.gainsUSD/c2.s.depUSD).toFixed(2) : 0);
@@ -1472,7 +1473,7 @@ function renderHistorique(){
     const st = statsCycle(debut);
     const roi = st.depUSD>0 ? (st.gainsUSD/st.depUSD).toFixed(2)+"×" : "—";
     const head = `<div class="hist-head">
-      <span class="hist-range">${debut.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})} → ${fin.toLocaleDateString("fr-CA",{day:"2-digit",month:"short"})}</span>
+      <span class="hist-range">${fmtDateUTC(debut,{day:"2-digit",month:"short"})} → ${fmtDateUTC(fin,{day:"2-digit",month:"short"})}</span>
       <span class="hist-stat">${st.nbBlocs} bloc${st.nbBlocs>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi} · <span class="${st.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(st.netAbsoluUSD)}</span></span>
     </div>`;
     const rows = groupes[k].map(e=>{
@@ -1534,7 +1535,7 @@ function remplirConfig(){
   const info = document.getElementById("passifInfo");
   const nbPassifs = classerCycles().passifs.length;
   info.innerHTML = (config.passiveCycleStart
-    ? "Cycle passif de référence : " + dateDeCle(config.passiveCycleStart).toLocaleDateString("fr-CA",{day:"2-digit",month:"long",year:"numeric"})
+    ? "Cycle passif de référence : " + fmtDateUTC(dateDeCle(config.passiveCycleStart),{day:"2-digit",month:"long",year:"numeric"})
     : "Aucun cycle passif marqué manuellement.")
     + `<br><b>${nbPassifs}</b> cycle(s) passif(s) détecté(s) automatiquement (dépense GMT ≈ 0) — le verdict s'appuie déjà dessus.`;
 }
