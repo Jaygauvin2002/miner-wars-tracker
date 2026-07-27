@@ -985,7 +985,7 @@ function deltaBadge(cur, prev){
 function renderApercu(){
   const cy = tousLesCycles();
   if(!cy.length) return "";
-  const tot = cy.reduce((a,c2)=>{ a.blocs+=c2.s.nbBlocs; a.depGmt+=c2.s.depGmt; a.gainsUSD+=c2.s.gainsUSD; a.depUSD+=c2.s.depUSD; a.netAbs+=c2.s.netAbsoluUSD; return a; }, {blocs:0,depGmt:0,gainsUSD:0,depUSD:0,netAbs:0});
+  const tot = cy.reduce((a,c2)=>{ a.blocs+=c2.s.nbBlocs; a.depGmt+=c2.s.depGmt; a.gainsUSD+=c2.s.gainsUSD; a.depUSD+=c2.s.depUSD; a.netAbs+=c2.s.netAbsoluUSD; a.sats+=c2.s.satsGagnes; a.gmt+=c2.s.gmtGagnes; return a; }, {blocs:0,depGmt:0,gainsUSD:0,depUSD:0,netAbs:0,sats:0,gmt:0});
   const net = tot.gainsUSD - tot.depUSD;
   const roi = tot.depUSD>0 ? tot.gainsUSD/tot.depUSD : 0;
   const meilleur = entries.filter(e=>e.type==="bloc").reduce((m,e)=> Math.max(m, e.btcSats||0), 0);
@@ -993,7 +993,7 @@ function renderApercu(){
     <h2>Vue d'ensemble — ${cy.length} cycle${cy.length>1?'s':''} suivis</h2>
     <div class="grid">
       <div class="stat"><div class="label">Blocs gagnés (total)</div><div class="val">${tot.blocs}</div></div>
-      <div class="stat"><div class="label">Gains totaux</div><div class="val">${fmtUSD(tot.gainsUSD)}</div></div>
+      <div class="stat"><div class="label" title="BTC (sats) + GMT perso, convertis en USD.">Gains totaux ⓘ</div><div class="val">${fmtUSD(tot.gainsUSD)}</div><div class="sub">${fmtNum(tot.sats)} sats + ${fmtNum(tot.gmt,1)} GMT</div></div>
       <div class="stat"><div class="label">Dépenses totales</div><div class="val">${fmtUSD(tot.depUSD)}</div><div class="sub">${fmtNum(tot.depGmt,0)} GMT</div></div>
       <div class="stat"><div class="label">Net spells</div><div class="val ${net>=0?'pos':'neg'}">${fmtUSD(net)}</div></div>
       <div class="stat"><div class="label" title="Gains cumulés ÷ dépenses cumulées (tous cycles). > 1× = profitable.">ROI global ⓘ</div><div class="val ${roi>=1?'pos':'neg'}">${tot.depUSD>0?roi.toFixed(2)+"×":"—"}</div></div>
@@ -1188,7 +1188,7 @@ function renderStripCycle(s, prev){
     <div class="grid strip-4">
       <div class="stat"><div class="label" title="Gains − dépenses de spells, hors OPEX.">ROI spells ⓘ</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}${prev?deltaBadge(s.roiUSD,prev.roiUSD):''}</div><div class="sub">${fmtNum(s.depGmt,0)} GMT dépensés</div></div>
       <div class="stat"><div class="label" title="Gains − dépenses − OPEX.">Net absolu ⓘ</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}${prev?deltaBadge(s.netAbsoluUSD,prev.netAbsoluUSD):''}</div><div class="sub">après OPEX</div></div>
-      <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}${prev?deltaBadge(s.nbBlocs,prev.nbBlocs):''}</div><div class="sub">${fmtUSD(s.gainsUSD)} gagnés</div></div>
+      <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}${prev?deltaBadge(s.nbBlocs,prev.nbBlocs):''}</div><div class="sub">${fmtNum(s.satsGagnes)} sats + ${fmtNum(s.gmtGagnes,1)} GMT (≈ ${fmtUSD(s.gainsUSD)})</div></div>
       <div class="stat"><div class="label">Budget bot</div><div class="val">${fmtNum(reste,0)}</div><div class="sub">GMT restants / ${fmtNum(budget,0)}</div><div class="progress ${pct>90?'hot':''}"><span style="width:${pct.toFixed(0)}%"></span></div></div>
     </div>
     ${!s.aPayout && s.nbBlocs ? `<small class="muted">${ic('clock',12)} Gains provisoires (estimations des blocs) — figés au payout du mardi.</small>` : ''}
@@ -1200,34 +1200,37 @@ function renderStripCycle(s, prev){
    les dépenses de la semaine (avant le payout). */
 function renderBreakeven(){
   const cur = statsCycle(debutCycle(new Date()));
-  // Valeur moyenne d'un bloc = gains réalisés (payouts) + estimés, sur tous les blocs saisis.
   const cy = tousLesCycles();
-  let gTot=0, bTot=0, satsTot=0, gmtTot=0;
-  cy.forEach(c=>{ gTot+=c.s.gainsUSD; bTot+=c.s.nbBlocs; satsTot+=c.s.satsGagnes; gmtTot+=c.s.gmtGagnes; });
-  const valBloc = bTot>0 ? gTot/bTot : 0;
+  let gTot=0, satsTot=0, gmtTot=0;
+  cy.forEach(c=>{ gTot+=c.s.gainsUSD; satsTot+=c.s.satsGagnes; gmtTot+=c.s.gmtGagnes; });
+  // Un bloc compte selon son multiplicateur : un x16 = 16 équivalents x1 (le mult. pondère la valeur du gain).
+  const blocsAll = entries.filter(e=>e.type==="bloc");
+  const nTot = blocsAll.length;
+  const poidsTot   = blocsAll.reduce((s,b)=>s+b.multiplicateur,0);          // équivalents x1 gagnés (total)
+  const poidsCycle = cur.blocs.reduce((s,b)=>s+b.multiplicateur,0);         // éq. x1 ce cycle
+  const valX1 = poidsTot>0 ? gTot/poidsTot : 0;                            // valeur d'un équivalent x1
+  const multMoy = nTot>0 ? poidsTot/nTot : 0;                              // multiplicateur moyen
 
-  const depSpells = cur.depUSD;                 // GMT bot+manuel du cycle, en USD
-  const depTot    = cur.depUSD + cur.opexUSD;   // + OPEX
-  const cibleSpells = valBloc>0 && depSpells>0.01 ? Math.ceil(depSpells/valBloc) : (depSpells<=0.01?0:null);
-  const cibleTot    = valBloc>0 && depTot>0.01   ? Math.ceil(depTot/valBloc)    : null;
-  const K = cur.nbBlocs;
+  const depSpells = cur.depUSD, depTot = cur.depUSD + cur.opexUSD;
+  const cible    = valX1>0 && depSpells>0.01 ? Math.ceil(depSpells/valX1) : (depSpells<=0.01?0:null);
+  const cibleTot = valX1>0 && depTot>0.01   ? Math.ceil(depTot/valX1)    : null;
 
   let phrase, cls='';
-  if(valBloc<=0){ phrase = "Saisis quelques blocs (et un payout) pour estimer la valeur d'un bloc."; }
+  if(valX1<=0){ phrase = "Saisis quelques blocs (avec leur multiplicateur) + un payout pour estimer la valeur."; }
   else if(depSpells<=0.01){ phrase = "Cycle passif : aucune dépense de spells à rembourser — chaque bloc est du profit (hors OPEX)."; cls='pos'; }
-  else if(K>=cibleSpells){ phrase = `Even atteint : tes <b>${K}</b> bloc(s) couvrent tes ${fmtUSD(depSpells)} de dépenses de spells.`; cls='pos'; }
-  else { phrase = `Encore ~<b>${cibleSpells-K}</b> bloc(s) à gagner pour rembourser tes ${fmtUSD(depSpells)} de dépenses ce cycle.`; }
+  else if(poidsCycle>=cible){ phrase = `Even atteint : tes blocs (<b>${poidsCycle}</b> éq. x1) couvrent tes ${fmtUSD(depSpells)} de dépenses.`; cls='pos'; }
+  else { phrase = `Encore ~<b>${cible-poidsCycle}</b> équivalents x1 pour rembourser tes ${fmtUSD(depSpells)} — un seul bloc x16 en donne 16.`; }
+  const pct = (cible && cible>0) ? Math.min(100, poidsCycle/cible*100) : 0;
 
-  const pct = (cibleSpells && cibleSpells>0) ? Math.min(100, K/cibleSpells*100) : 0;
   return `<div class="card"><span class="kicker">Seuil de rentabilité — cette semaine</span>
     <div class="grid" style="margin-top:6px">
-      <div class="stat"><div class="label" title="Gains réalisés (payouts) + estimés ÷ nombre total de blocs saisis.">Un bloc rapporte ⓘ</div><div class="val">${valBloc>0?fmtUSD(valBloc):'—'}</div><div class="sub">${bTot>0?`~${fmtNum(satsTot/bTot)} sats · ${fmtNum(gmtTot/bTot,1)} GMT`:'pas encore de données'}</div></div>
+      <div class="stat"><div class="label" title="Gains ÷ somme des multiplicateurs. Un bloc x16 vaut 16 éq. x1.">Valeur d'un éq. x1 ⓘ</div><div class="val">${valX1>0?fmtUSD(valX1):'—'}</div><div class="sub">${poidsTot>0?`un x16 ≈ ${fmtUSD(valX1*16)}`:'pas encore de données'}</div></div>
       <div class="stat"><div class="label">Dépense ce cycle</div><div class="val">${fmtUSD(depSpells)}</div><div class="sub">${fmtNum(cur.depGmt,0)} GMT${cur.opexGmt>0?` · +${fmtUSD(cur.opexUSD)} OPEX`:''}</div></div>
-      <div class="stat"><div class="label">Blocs pour être even</div><div class="val">${cibleSpells!=null?cibleSpells:'—'}</div><div class="sub">${cibleTot!=null?`${cibleTot} avec OPEX`:'sur les spells'}</div></div>
-      <div class="stat"><div class="label">Blocs gagnés</div><div class="val ${cls}">${K}${cibleSpells?` / ${cibleSpells}`:''}</div><div class="sub">ce cycle</div></div>
+      <div class="stat"><div class="label" title="Dépense ÷ valeur d'un équivalent x1.">Éq. x1 pour être even ⓘ</div><div class="val">${cible!=null?cible:'—'}</div><div class="sub">${cibleTot!=null?`${cibleTot} avec OPEX`:'sur les spells'}</div></div>
+      <div class="stat"><div class="label">Éq. x1 gagnés</div><div class="val ${cls}">${poidsCycle}${cible?` / ${cible}`:''}</div><div class="sub">sur ${cur.nbBlocs} bloc(s) ce cycle</div></div>
     </div>
-    ${cibleSpells?`<div class="progress" style="margin-top:12px"><span style="width:${pct.toFixed(0)}%;background:${K>=cibleSpells?'var(--green)':'var(--accent)'}"></span></div>`:''}
-    <small class="muted" style="display:block;margin-top:10px">${phrase} <span style="color:var(--faint)">Valeur/bloc = moyenne sur ${bTot} bloc(s) ; avant le payout du mardi, les gains sont estimés.</span></small>
+    ${cible?`<div class="progress" style="margin-top:12px"><span style="width:${pct.toFixed(0)}%;background:${poidsCycle>=cible?'var(--green)':'var(--accent)'}"></span></div>`:''}
+    <small class="muted" style="display:block;margin-top:10px">${phrase} <span style="color:var(--faint)">Chaque bloc compte selon son multiplicateur (x16 = 16 éq. x1). Total : ${nTot} blocs = <b>${poidsTot}</b> éq. x1 (mult. moyen x${multMoy.toFixed(1)}). Gains estimés avant le payout.</span></small>
     <small class="muted" style="display:block;margin-top:8px;border-top:1px solid var(--border);padding-top:10px">Généré <b>ce cycle</b> : ${fmtNum(cur.satsGagnes)} sats + ${fmtNum(cur.gmtGagnes,1)} GMT (≈ ${fmtUSD(cur.gainsUSD)}) &nbsp;·&nbsp; <b>depuis le début</b> : ${fmtNum(satsTot)} sats + ${fmtNum(gmtTot,1)} GMT (≈ ${fmtUSD(gTot)})</small>
   </div>`;
 }
