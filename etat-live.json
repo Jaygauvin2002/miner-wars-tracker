@@ -8,5 +8,9 @@
   "opexUSD": 80,
   "pxBtc": 65007,
   "pxGmt": 0.285753,
+  "rankBtc": 16,
+  "rankGmt": 12,
+  "botOn": false,
+  "payout": null,
   "note": "Cycle passif — bot OFF. Payout mardi 28 juil."
 }

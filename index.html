@@ -953,9 +953,11 @@ function statsCycle(debut){
   // GROUND TRUTH = le payout (ce qui est réellement reçu). Les blocs servent seulement
   // à estimer AVANT le payout et à ventiler par multiplicateur (diagnostic).
   // -> on n'additionne JAMAIS blocs + payout (sinon double comptage).
-  const aPayout = payouts.length > 0;
+  const aPayoutLocal = payouts.length > 0;
   // Override "live" poussé par Claude (fichier etat-live.json) : écrase les chiffres du cycle courant.
   const live = (liveEtat && liveEtat.cycle === cleCycle(debut)) ? liveEtat : null;
+  const livePay = (live && live.payout) ? live.payout : null;  // payout final poussé (mardi) = vérité-terrain
+  const aPayout = aPayoutLocal || !!livePay;
   // État du jeu : total autoritaire recopié depuis Miner Wars, saisi sur la Journée (service quotidien).
   // Plus fiable que la somme des blocs loggés (souvent incomplète). On prend la journée la plus RÉCENTE
   // du cycle qui porte un total du jeu (le compteur du jeu est cumulatif sur le cycle).
@@ -969,12 +971,14 @@ function statsCycle(debut){
   }
 
   // Priorité PAR COMPOSANTE : payout (vérité) > état du jeu si ce champ est renseigné > somme des blocs loggés.
-  const satsGagnes = aPayout
+  const satsGagnes = aPayoutLocal
     ? payouts.reduce((s,e)=> s + e.btcSatsRecu - e.fraisSats, 0)
+    : livePay ? (livePay.sats||0) - (livePay.frais||0)
     : (etat && etat.btcSats!=null) ? etat.btcSats
     : blocs.reduce((s,e)=> s + e.btcSats, 0);
-  const gmtGagnes = aPayout
+  const gmtGagnes = aPayoutLocal
     ? payouts.reduce((s,e)=> s + e.gmtRecu, 0)
+    : livePay ? (livePay.gmt||0)
     : (etat && etat.gmt!=null) ? etat.gmt
     : blocs.reduce((s,e)=> s + e.gmtPerso, 0);
 
@@ -999,13 +1003,16 @@ function statsCycle(debut){
   const gmtBlocMoy= nbBlocs ? gmtBlocs/nbBlocs : 0;
   const coutGmtParBloc = nbBlocs ? depGmt/nbBlocs : 0;
 
-  return { es, jours, blocs, payouts, aPayout, live: !!live, liveMaj: live? live.maj : null, etat, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, depGmt, opexGmt, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
+  return { es, jours, blocs, payouts, aPayout, live: !!live, liveMaj: live? live.maj : null, liveFinal: !!livePay,
+    rankBtc: live&&live.rankBtc!=null? live.rankBtc:null, rankGmt: live&&live.rankGmt!=null? live.rankGmt:null, botOn: live&&live.botOn!=null? live.botOn:null,
+    etat, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, depGmt, opexGmt, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
 // Tous les cycles présents dans les données, du plus ancien au plus récent.
 function tousLesCycles(){
-  const keys = [...new Set(entries.map(e=>cleCycle(e.date)))].sort();
-  return keys.map(k=> ({ key:k, debut:dateDeCle(k), s:statsCycle(dateDeCle(k)) }));
+  const keys = new Set(entries.map(e=>cleCycle(e.date)));
+  if(liveEtat && liveEtat.cycle) keys.add(liveEtat.cycle);   // le cycle "live" apparaît même sans saisie locale
+  return [...keys].sort().map(k=> ({ key:k, debut:dateDeCle(k), s:statsCycle(dateDeCle(k)) }));
 }
 // Petit indicateur de tendance ▲/▼ coloré vs une valeur précédente.
 function deltaBadge(cur, prev){
@@ -1220,7 +1227,7 @@ function renderStripCycle(s, prev){
   const manque = s.nbBlocsJeu!=null ? s.nbBlocsJeu - s.nbBlocs : 0;
   return `<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
-      <span class="kicker" style="margin:0">Ce cycle${s.live?` <span style="color:var(--accent2);font-weight:700;text-transform:none;letter-spacing:0;font-size:.72rem">· ⟳&nbsp;live</span>`:''}</span>
+      <span class="kicker" style="margin:0">Ce cycle${s.live?` <span style="color:var(--accent2);font-weight:700;text-transform:none;letter-spacing:0;font-size:.72rem">· ⟳&nbsp;live${s.botOn===false?'&nbsp;·&nbsp;passif':(s.botOn===true?'&nbsp;·&nbsp;boosté':'')}</span>`:''}</span>
       <span class="chip ${faitAuj?'ok':'todo'}">${ic('flame',14)} ${streak} j · service ${faitAuj?ic('check',13):ic('warn',13)}</span>
     </div>
     <div class="grid strip-4">
@@ -1229,9 +1236,10 @@ function renderStripCycle(s, prev){
       <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${bAff}${(prev&&bPrev!=null)?deltaBadge(bAff,bPrev):''}</div><div class="sub">${fmtNum(s.satsGagnes)} sats + ${fmtNum(s.gmtGagnes,1)} GMT (≈ ${fmtUSD(s.gainsUSD)})</div></div>
       <div class="stat"><div class="label">Budget bot</div><div class="val">${fmtNum(reste,0)}</div><div class="sub">GMT restants / ${fmtNum(budget,0)}</div><div class="progress ${pct>90?'hot':''}"><span style="width:${pct.toFixed(0)}%"></span></div></div>
     </div>
+    ${(s.rankBtc!=null||s.rankGmt!=null) ? `<small class="muted" style="display:block;margin-top:8px">Rang du clan : ${s.rankBtc!=null?`BTC <b>#${s.rankBtc}</b>`:''}${(s.rankBtc!=null&&s.rankGmt!=null)?' · ':''}${s.rankGmt!=null?`GMT <b>#${s.rankGmt}</b>`:''}</small>` : ''}
     ${!s.aPayout && (s.nbBlocs||s.etat) ? `<small class="muted">${ic('clock',12)} Gains provisoires (${s.etat?'total du jeu':'estimations des blocs'}) — figés au payout du mardi.</small>` : ''}
     ${!s.aPayout && !s.live && s.nbBlocsJeu!=null ? `<small class="muted" style="display:block;margin-top:6px">Réf. jeu : <b>${s.nbBlocsJeu}</b> blocs · ${fmtNum(s.etat.btcSats||0)} sats · ${fmtNum(s.etat.gmt||0,1)} GMT — ${manque>0?`<span style="color:var(--accent)">tu as loggé ${s.nbBlocs}, il en manque ${manque} à saisir</span>`:(s.nbBlocs>s.nbBlocsJeu?`<span style="color:var(--red)">tu as loggé ${s.nbBlocs} (plus que le jeu, vérifie)</span>`:`<span style="color:var(--green)">tes ${s.nbBlocs} blocs loggés collent ${ic('check',12)}</span>`)}</small>` : ''}
-    ${s.live ? `<small class="muted" style="display:block;margin-top:6px">${ic('info',12)} Chiffres du cycle mis à jour par Claude${s.liveMaj?` · <b>${s.liveMaj}</b>`:''}.</small>` : ''}
+    ${s.live ? `<small class="muted" style="display:block;margin-top:6px">${ic('info',12)} ${s.liveFinal?`<b style="color:var(--green)">Définitif</b> — payout du mardi encaissé`:`Chiffres du cycle mis à jour par Claude`}${s.liveMaj?` · <b>${s.liveMaj}</b>`:''}.</small>` : ''}
     ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats estimés vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} réels (payout) — le ROI se base sur le payout.</small>` : ''}
   </div>`;
 }
