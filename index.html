@@ -1004,7 +1004,7 @@ function statsCycle(debut){
   const coutGmtParBloc = nbBlocs ? depGmt/nbBlocs : 0;
 
   return { es, jours, blocs, payouts, aPayout, live: !!live, liveMaj: live? live.maj : null, liveFinal: !!livePay,
-    rankBtc: live&&live.rankBtc!=null? live.rankBtc:null, rankGmt: live&&live.rankGmt!=null? live.rankGmt:null, winPct: live&&live.winPct!=null? live.winPct:null, botOn: live&&live.botOn!=null? live.botOn:null,
+    rankBtc: live&&live.rankBtc!=null? live.rankBtc:null, rankGmt: live&&live.rankGmt!=null? live.rankGmt:null, botOn: live&&live.botOn!=null? live.botOn:null,
     etat, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, depGmt, opexGmt, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
@@ -1236,7 +1236,7 @@ function renderStripCycle(s, prev){
       <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${bAff}${(prev&&bPrev!=null)?deltaBadge(bAff,bPrev):''}</div><div class="sub">${fmtNum(s.satsGagnes)} sats + ${fmtNum(s.gmtGagnes,1)} GMT (≈ ${fmtUSD(s.gainsUSD)})</div></div>
       <div class="stat"><div class="label">Budget bot</div><div class="val">${fmtNum(reste,0)}</div><div class="sub">GMT restants / ${fmtNum(budget,0)}</div><div class="progress ${pct>90?'hot':''}"><span style="width:${pct.toFixed(0)}%"></span></div></div>
     </div>
-    ${(s.rankBtc!=null||s.rankGmt!=null||s.winPct!=null) ? `<small class="muted" style="display:block;margin-top:8px">${(s.rankBtc!=null||s.rankGmt!=null)?`Rang du clan : ${s.rankBtc!=null?`BTC <b>#${s.rankBtc}</b>`:''}${(s.rankBtc!=null&&s.rankGmt!=null)?' · ':''}${s.rankGmt!=null?`GMT <b>#${s.rankGmt}</b>`:''}`:''}${((s.rankBtc!=null||s.rankGmt!=null)&&s.winPct!=null)?' · ':''}${s.winPct!=null?`proba/round <b>~${String(s.winPct).replace('.',',')} %</b> <span style="color:var(--faint)">(dépend des boosts adverses)</span>`:''}</small>` : ''}
+    ${(s.rankBtc!=null||s.rankGmt!=null) ? `<small class="muted" style="display:block;margin-top:8px">Rang du clan : ${s.rankBtc!=null?`BTC <b>#${s.rankBtc}</b>`:''}${(s.rankBtc!=null&&s.rankGmt!=null)?' · ':''}${s.rankGmt!=null?`GMT <b>#${s.rankGmt}</b>`:''}</small>` : ''}
     ${!s.aPayout && (s.nbBlocs||s.etat) ? `<small class="muted">${ic('clock',12)} Gains provisoires (${s.etat?'total du jeu':'estimations des blocs'}) — figés au payout du mardi.</small>` : ''}
     ${!s.aPayout && !s.live && s.nbBlocsJeu!=null ? `<small class="muted" style="display:block;margin-top:6px">Réf. jeu : <b>${s.nbBlocsJeu}</b> blocs · ${fmtNum(s.etat.btcSats||0)} sats · ${fmtNum(s.etat.gmt||0,1)} GMT — ${manque>0?`<span style="color:var(--accent)">tu as loggé ${s.nbBlocs}, il en manque ${manque} à saisir</span>`:(s.nbBlocs>s.nbBlocsJeu?`<span style="color:var(--red)">tu as loggé ${s.nbBlocs} (plus que le jeu, vérifie)</span>`:`<span style="color:var(--green)">tes ${s.nbBlocs} blocs loggés collent ${ic('check',12)}</span>`)}</small>` : ''}
     ${s.live ? `<small class="muted" style="display:block;margin-top:6px">${ic('info',12)} ${s.liveFinal?`<b style="color:var(--green)">Définitif</b> — payout du mardi encaissé`:`Chiffres du cycle mis à jour par Claude`}${s.liveMaj?` · <b>${s.liveMaj}</b>`:''}.</small>` : ''}
