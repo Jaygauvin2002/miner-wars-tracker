@@ -770,9 +770,10 @@ function ouvrirForm(type, id){
     html += `<small class="muted">${ic('info',13)} <b>État du jeu</b> (optionnel) — recopie les 3 totaux du cycle affichés dans Miner Wars. Sert de référence autoritaire pour les gains estimés + repère les blocs oubliés.</small>`;
     html += `<div class="two">`;
     html += champ("Blocs (jeu)", `<input type="number" inputmode="numeric" id="f_jblocs" placeholder="33" value="${e&&e.jeuBlocs!=null? e.jeuBlocs : ''}">`);
-    html += champ("BTC total (jeu)", `<input type="number" inputmode="decimal" step="0.00000001" id="f_jbtc" placeholder="0.00217118" value="${e&&e.jeuSats!=null? (e.jeuSats/SATS_PAR_BTC) : ''}">`);
+    html += champ("BTC total (jeu, en sats)", `<input type="number" inputmode="numeric" id="f_jsats" placeholder="211000" value="${e&&e.jeuSats!=null? e.jeuSats : ''}">`);
     html += `</div>`;
     html += champ("GMT total (jeu)", `<input type="number" inputmode="decimal" id="f_jgmt" placeholder="74.32" value="${e&&e.jeuGmt!=null? e.jeuGmt : ''}">`);
+    html += `<small class="muted">${ic('info',12)} Le BTC se saisit en <b>sats</b> (ex. 0,00211 BTC = 211 000 sats).</small>`;
   }
   else if(type==="bloc"){
     multChoisi = e ? e.multiplicateur : null;
@@ -850,9 +851,9 @@ function sauverEntree(type){
     obj.serviceFait = document.getElementById("f_service").checked;
     if(obj.gmtDepenseBot < 0 || obj.gmtDepenseManuel < 0 || obj.opexQuotidien < 0){ toast("Valeurs négatives interdites"); return; }
     // État du jeu (optionnel) : totaux cumulés du cycle recopiés depuis Miner Wars.
-    const jb = document.getElementById("f_jblocs").value, jbtc = document.getElementById("f_jbtc").value, jg = document.getElementById("f_jgmt").value;
+    const jb = document.getElementById("f_jblocs").value, jsats = document.getElementById("f_jsats").value, jg = document.getElementById("f_jgmt").value;
     obj.jeuBlocs = jb!=="" ? Math.max(0, Math.round(parseFloat(jb)||0)) : null;
-    obj.jeuSats  = jbtc!=="" ? Math.max(0, Math.round((parseFloat(jbtc)||0)*SATS_PAR_BTC)) : null;
+    obj.jeuSats  = jsats!=="" ? Math.max(0, Math.round(parseFloat(jsats)||0)) : null;
     obj.jeuGmt   = jg!=="" ? Math.max(0, parseFloat(jg)||0) : null;
     if(obj.jeuBlocs!=null || obj.jeuSats!=null || obj.jeuGmt!=null) snapshotPrix(obj);
   }
