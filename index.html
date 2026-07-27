@@ -766,6 +766,13 @@ function ouvrirForm(type, id){
     html += champ("Solde du Spell Bot (GMT)", `<input type="number" inputmode="decimal" id="f_solde" value="${e? e.soldeBot : ''}">`);
     html += champ("OPEX du jour (GMT — élec.+maintenance)", `<input type="number" inputmode="decimal" id="f_opex" value="${e? (e.opexQuotidien||'') : (config.opexQuotidien||'')}">`);
     html += `<div class="field-inline"><input type="checkbox" id="f_service" ${(!e || e.serviceFait)?'checked':''}><label for="f_service">Service fait aujourd'hui</label></div>`;
+    html += `<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px"></div>`;
+    html += `<small class="muted">${ic('info',13)} <b>État du jeu</b> (optionnel) — recopie les 3 totaux du cycle affichés dans Miner Wars. Sert de référence autoritaire pour les gains estimés + repère les blocs oubliés.</small>`;
+    html += `<div class="two">`;
+    html += champ("Blocs (jeu)", `<input type="number" inputmode="numeric" id="f_jblocs" placeholder="33" value="${e&&e.jeuBlocs!=null? e.jeuBlocs : ''}">`);
+    html += champ("BTC total (jeu)", `<input type="number" inputmode="decimal" step="0.00000001" id="f_jbtc" placeholder="0.00217118" value="${e&&e.jeuSats!=null? (e.jeuSats/SATS_PAR_BTC) : ''}">`);
+    html += `</div>`;
+    html += champ("GMT total (jeu)", `<input type="number" inputmode="decimal" id="f_jgmt" placeholder="74.32" value="${e&&e.jeuGmt!=null? e.jeuGmt : ''}">`);
   }
   else if(type==="bloc"){
     multChoisi = e ? e.multiplicateur : null;
@@ -842,6 +849,12 @@ function sauverEntree(type){
     obj.opexQuotidien = num("f_opex");
     obj.serviceFait = document.getElementById("f_service").checked;
     if(obj.gmtDepenseBot < 0 || obj.gmtDepenseManuel < 0 || obj.opexQuotidien < 0){ toast("Valeurs négatives interdites"); return; }
+    // État du jeu (optionnel) : totaux cumulés du cycle recopiés depuis Miner Wars.
+    const jb = document.getElementById("f_jblocs").value, jbtc = document.getElementById("f_jbtc").value, jg = document.getElementById("f_jgmt").value;
+    obj.jeuBlocs = jb!=="" ? Math.max(0, Math.round(parseFloat(jb)||0)) : null;
+    obj.jeuSats  = jbtc!=="" ? Math.max(0, Math.round((parseFloat(jbtc)||0)*SATS_PAR_BTC)) : null;
+    obj.jeuGmt   = jg!=="" ? Math.max(0, parseFloat(jg)||0) : null;
+    if(obj.jeuBlocs!=null || obj.jeuSats!=null || obj.jeuGmt!=null) snapshotPrix(obj);
   }
   else if(type==="bloc"){
     if(!MULTIS.includes(multChoisi)){ toast("Choisis un multiplicateur"); return; }
@@ -939,16 +952,26 @@ function statsCycle(debut){
   // à estimer AVANT le payout et à ventiler par multiplicateur (diagnostic).
   // -> on n'additionne JAMAIS blocs + payout (sinon double comptage).
   const aPayout = payouts.length > 0;
+  // État du jeu : total autoritaire recopié depuis Miner Wars, saisi sur la Journée (service quotidien).
+  // Plus fiable que la somme des blocs loggés (souvent incomplète). On prend la journée la plus RÉCENTE
+  // du cycle qui porte un total du jeu (le compteur du jeu est cumulatif sur le cycle).
+  const joursJeu = jours.filter(j=> j.jeuBlocs!=null || j.jeuSats!=null || j.jeuGmt!=null);
+  const etatJ = joursJeu.length ? joursJeu.reduce((a,b)=> new Date(b.date) >= new Date(a.date) ? b : a) : null;
+  // On garde les valeurs telles quelles (null = champ non renseigné) pour ne pas écraser une estimation par 0.
+  const etat = etatJ ? { blocs: etatJ.jeuBlocs, btcSats: etatJ.jeuSats, gmt: etatJ.jeuGmt, prixBtcUsd: etatJ.prixBtcUsd||null, prixGmtUsd: etatJ.prixGmtUsd||null } : null;
+
+  // Priorité PAR COMPOSANTE : payout (vérité) > état du jeu si ce champ est renseigné > somme des blocs loggés.
   const satsGagnes = aPayout
     ? payouts.reduce((s,e)=> s + e.btcSatsRecu - e.fraisSats, 0)
+    : (etat && etat.btcSats!=null) ? etat.btcSats
     : blocs.reduce((s,e)=> s + e.btcSats, 0);
   const gmtGagnes = aPayout
     ? payouts.reduce((s,e)=> s + e.gmtRecu, 0)
+    : (etat && etat.gmt!=null) ? etat.gmt
     : blocs.reduce((s,e)=> s + e.gmtPerso, 0);
 
-  // Prix figés du cycle : on valorise au prix snapshotté du payout si dispo, sinon
-  // au prix live -> comparaison inter-cycles équitable (la dérive de prix s'annule).
-  const snap = payouts.find(p=>p.prixBtcUsd) || null;
+  // Prix figés du cycle : payout > état du jeu > prix live -> comparaison inter-cycles équitable.
+  const snap = payouts.find(p=>p.prixBtcUsd) || (etat && etat.prixBtcUsd ? etat : null) || null;
   const pxBtc = snap ? snap.prixBtcUsd : (prix ? prix.bitcoin : 0);
   const pxGmt = snap ? snap.prixGmtUsd : (prix ? prix.gomining : 0);
 
@@ -967,7 +990,7 @@ function statsCycle(debut){
   const gmtBlocMoy= nbBlocs ? gmtBlocs/nbBlocs : 0;
   const coutGmtParBloc = nbBlocs ? depGmt/nbBlocs : 0;
 
-  return { es, jours, blocs, payouts, aPayout, depGmt, opexGmt, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
+  return { es, jours, blocs, payouts, aPayout, etat, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, depGmt, opexGmt, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
 // Tous les cycles présents dans les données, du plus ancien au plus récent.
@@ -985,7 +1008,7 @@ function deltaBadge(cur, prev){
 function renderApercu(){
   const cy = tousLesCycles();
   if(!cy.length) return "";
-  const tot = cy.reduce((a,c2)=>{ a.blocs+=c2.s.nbBlocs; a.depGmt+=c2.s.depGmt; a.gainsUSD+=c2.s.gainsUSD; a.depUSD+=c2.s.depUSD; a.netAbs+=c2.s.netAbsoluUSD; a.sats+=c2.s.satsGagnes; a.gmt+=c2.s.gmtGagnes; return a; }, {blocs:0,depGmt:0,gainsUSD:0,depUSD:0,netAbs:0,sats:0,gmt:0});
+  const tot = cy.reduce((a,c2)=>{ a.blocs+=(c2.s.nbBlocsJeu!=null?c2.s.nbBlocsJeu:c2.s.nbBlocs); a.depGmt+=c2.s.depGmt; a.gainsUSD+=c2.s.gainsUSD; a.depUSD+=c2.s.depUSD; a.netAbs+=c2.s.netAbsoluUSD; a.sats+=c2.s.satsGagnes; a.gmt+=c2.s.gmtGagnes; return a; }, {blocs:0,depGmt:0,gainsUSD:0,depUSD:0,netAbs:0,sats:0,gmt:0});
   const net = tot.gainsUSD - tot.depUSD;
   const roi = tot.depUSD>0 ? tot.gainsUSD/tot.depUSD : 0;
   const meilleur = entries.filter(e=>e.type==="bloc").reduce((m,e)=> Math.max(m, e.btcSats||0), 0);
@@ -1033,7 +1056,7 @@ function renderTableauCycles(){
     return `<tr>
       <td>${dateTxt}${estRef?' <span class="muted">(réf.)</span>':''}</td>
       <td>${passif?'<span class="muted">Passif</span>':'Boosté'}</td>
-      <td>${st.nbBlocs}</td>
+      <td>${st.nbBlocsJeu!=null?st.nbBlocsJeu:st.nbBlocs}</td>
       <td>${fmtNum(st.depGmt,0)}</td>
       <td>${fmtUSD(st.gainsUSD)}</td>
       <td class="${roi==null?'':(roi>=1?'pos':'neg')}">${roi==null?'—':roi.toFixed(2)+'×'}</td>
@@ -1057,11 +1080,13 @@ function renderCadence(){
   const cy = tousLesCycles();
   const nbCycles = cy.length || 1;
   const totSats = cy.reduce((a,c2)=> a + c2.s.satsGagnes, 0);
-  const blocsJour = blocs.length / joursEcoules;
+  // Compte de blocs : total du jeu (autoritaire) par cycle si dispo, sinon blocs loggés.
+  const totBlocs = cy.reduce((a,c2)=> a + (c2.s.nbBlocsJeu!=null?c2.s.nbBlocsJeu:c2.s.nbBlocs), 0);
+  const blocsJour = totBlocs / joursEcoules;
   return `<div class="card"><h2>Cadence — sur ${joursEcoules} jour${joursEcoules>1?'s':''} suivis</h2>
     <div class="grid">
       <div class="stat"><div class="label">Blocs / jour</div><div class="val">${blocsJour.toFixed(2)}</div></div>
-      <div class="stat"><div class="label">Blocs / cycle</div><div class="val">${(blocs.length/nbCycles).toFixed(1)}</div></div>
+      <div class="stat"><div class="label">Blocs / cycle</div><div class="val">${(totBlocs/nbCycles).toFixed(1)}</div></div>
       <div class="stat"><div class="label">Sats / jour</div><div class="val">${fmtNum(totSats/joursEcoules)}</div></div>
       <div class="stat"><div class="label">Projection blocs / mois</div><div class="val">${(blocsJour*30).toFixed(0)}</div><div class="sub">au rythme actuel</div></div>
     </div></div>`;
@@ -1180,6 +1205,10 @@ function renderStripCycle(s, prev){
   const budget = config.budgetBotCycle||0;
   const pct = budget>0 ? Math.min(100, depBot/budget*100) : 0;
   const reste = budget - depBot;
+  // Compte de blocs affiché : total du jeu (autoritaire) si dispo, sinon blocs loggés.
+  const bAff  = s.nbBlocsJeu!=null ? s.nbBlocsJeu : s.nbBlocs;
+  const bPrev = prev ? (prev.nbBlocsJeu!=null ? prev.nbBlocsJeu : prev.nbBlocs) : null;
+  const manque = s.nbBlocsJeu!=null ? s.nbBlocsJeu - s.nbBlocs : 0;
   return `<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
       <span class="kicker" style="margin:0">Ce cycle</span>
@@ -1188,10 +1217,11 @@ function renderStripCycle(s, prev){
     <div class="grid strip-4">
       <div class="stat"><div class="label" title="Gains − dépenses de spells, hors OPEX.">ROI spells ⓘ</div><div class="val ${s.roiUSD>=0?'pos':'neg'}">${fmtUSD(s.roiUSD)}${prev?deltaBadge(s.roiUSD,prev.roiUSD):''}</div><div class="sub">${fmtNum(s.depGmt,0)} GMT dépensés</div></div>
       <div class="stat"><div class="label" title="Gains − dépenses − OPEX.">Net absolu ⓘ</div><div class="val ${s.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(s.netAbsoluUSD)}${prev?deltaBadge(s.netAbsoluUSD,prev.netAbsoluUSD):''}</div><div class="sub">après OPEX</div></div>
-      <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${s.nbBlocs}${prev?deltaBadge(s.nbBlocs,prev.nbBlocs):''}</div><div class="sub">${fmtNum(s.satsGagnes)} sats + ${fmtNum(s.gmtGagnes,1)} GMT (≈ ${fmtUSD(s.gainsUSD)})</div></div>
+      <div class="stat"><div class="label">Blocs gagnés</div><div class="val">${bAff}${(prev&&bPrev!=null)?deltaBadge(bAff,bPrev):''}</div><div class="sub">${fmtNum(s.satsGagnes)} sats + ${fmtNum(s.gmtGagnes,1)} GMT (≈ ${fmtUSD(s.gainsUSD)})</div></div>
       <div class="stat"><div class="label">Budget bot</div><div class="val">${fmtNum(reste,0)}</div><div class="sub">GMT restants / ${fmtNum(budget,0)}</div><div class="progress ${pct>90?'hot':''}"><span style="width:${pct.toFixed(0)}%"></span></div></div>
     </div>
-    ${!s.aPayout && s.nbBlocs ? `<small class="muted">${ic('clock',12)} Gains provisoires (estimations des blocs) — figés au payout du mardi.</small>` : ''}
+    ${!s.aPayout && (s.nbBlocs||s.etat) ? `<small class="muted">${ic('clock',12)} Gains provisoires (${s.etat?'total du jeu':'estimations des blocs'}) — figés au payout du mardi.</small>` : ''}
+    ${!s.aPayout && s.nbBlocsJeu!=null ? `<small class="muted" style="display:block;margin-top:6px">Réf. jeu : <b>${s.nbBlocsJeu}</b> blocs · ${fmtNum(s.etat.btcSats||0)} sats · ${fmtNum(s.etat.gmt||0,1)} GMT — ${manque>0?`<span style="color:var(--accent)">tu as loggé ${s.nbBlocs}, il en manque ${manque} à saisir</span>`:(s.nbBlocs>s.nbBlocsJeu?`<span style="color:var(--red)">tu as loggé ${s.nbBlocs} (plus que le jeu, vérifie)</span>`:`<span style="color:var(--green)">tes ${s.nbBlocs} blocs loggés collent ${ic('check',12)}</span>`)}</small>` : ''}
     ${s.aPayout && s.nbBlocs ? `<small class="muted">Réconciliation : ${fmtNum(s.satsBlocs)} sats estimés vs ${fmtNum(s.payouts.reduce((a,e)=>a+e.btcSatsRecu,0))} réels (payout) — le ROI se base sur le payout.</small>` : ''}
   </div>`;
 }
@@ -1208,8 +1238,13 @@ function renderBreakeven(){
   const nTot = blocsAll.length;
   const poidsTot   = blocsAll.reduce((s,b)=>s+b.multiplicateur,0);          // équivalents x1 gagnés (total)
   const poidsCycle = cur.blocs.reduce((s,b)=>s+b.multiplicateur,0);         // éq. x1 ce cycle
-  const valX1 = poidsTot>0 ? gTot/poidsTot : 0;                            // valeur d'un équivalent x1
   const multMoy = nTot>0 ? poidsTot/nTot : 0;                              // multiplicateur moyen
+  // Valeur d'un éq. x1 : ancrée sur les cycles PAYÉS (vérité-terrain) si dispo, sinon estimation.
+  let gPay=0, poidsPay=0;
+  cy.forEach(c=>{ if(c.s.aPayout){ gPay+=c.s.gainsUSD; poidsPay += c.s.blocs.reduce((a,b)=>a+b.multiplicateur,0); } });
+  const valReel = poidsPay>0;
+  const valX1 = valReel ? gPay/poidsPay : (poidsTot>0 ? gTot/poidsTot : 0); // valeur d'un équivalent x1
+  const manqueCur = cur.nbBlocsJeu!=null ? cur.nbBlocsJeu - cur.nbBlocs : 0; // blocs du jeu pas encore loggés
 
   const depSpells = cur.depUSD, depTot = cur.depUSD + cur.opexUSD;
   const cible    = valX1>0 && depSpells>0.01 ? Math.ceil(depSpells/valX1) : (depSpells<=0.01?0:null);
@@ -1224,13 +1259,14 @@ function renderBreakeven(){
 
   return `<div class="card"><span class="kicker">Seuil de rentabilité — cette semaine</span>
     <div class="grid" style="margin-top:6px">
-      <div class="stat"><div class="label" title="Gains ÷ somme des multiplicateurs. Un bloc x16 vaut 16 éq. x1.">Valeur d'un éq. x1 ⓘ</div><div class="val">${valX1>0?fmtUSD(valX1):'—'}</div><div class="sub">${poidsTot>0?`un x16 ≈ ${fmtUSD(valX1*16)}`:'pas encore de données'}</div></div>
+      <div class="stat"><div class="label" title="Gains ÷ somme des multiplicateurs. Un bloc x16 vaut 16 éq. x1. Ancrée sur tes payouts réels dès qu'il y en a.">Valeur d'un éq. x1 ⓘ</div><div class="val">${valX1>0?fmtUSD(valX1):'—'}</div><div class="sub">${valX1>0?`un x16 ≈ ${fmtUSD(valX1*16)} · ${valReel?'réel (payouts)':'estimé'}`:'pas encore de données'}</div></div>
       <div class="stat"><div class="label">Dépense ce cycle</div><div class="val">${fmtUSD(depSpells)}</div><div class="sub">${fmtNum(cur.depGmt,0)} GMT${cur.opexGmt>0?` · +${fmtUSD(cur.opexUSD)} OPEX`:''}</div></div>
       <div class="stat"><div class="label" title="Dépense ÷ valeur d'un équivalent x1.">Éq. x1 pour être even ⓘ</div><div class="val">${cible!=null?cible:'—'}</div><div class="sub">${cibleTot!=null?`${cibleTot} avec OPEX`:'sur les spells'}</div></div>
-      <div class="stat"><div class="label">Éq. x1 gagnés</div><div class="val ${cls}">${poidsCycle}${cible?` / ${cible}`:''}</div><div class="sub">sur ${cur.nbBlocs} bloc(s) ce cycle</div></div>
+      <div class="stat"><div class="label">Éq. x1 gagnés</div><div class="val ${cls}">${poidsCycle}${cible?` / ${cible}`:''}</div><div class="sub">sur ${cur.nbBlocs} bloc(s) loggé(s)${cur.nbBlocsJeu!=null?` / ${cur.nbBlocsJeu} au jeu`:''}</div></div>
     </div>
     ${cible?`<div class="progress" style="margin-top:12px"><span style="width:${pct.toFixed(0)}%;background:${poidsCycle>=cible?'var(--green)':'var(--accent)'}"></span></div>`:''}
-    <small class="muted" style="display:block;margin-top:10px">${phrase} <span style="color:var(--faint)">Chaque bloc compte selon son multiplicateur (x16 = 16 éq. x1). Total : ${nTot} blocs = <b>${poidsTot}</b> éq. x1 (mult. moyen x${multMoy.toFixed(1)}). Gains estimés avant le payout.</span></small>
+    ${manqueCur>0?`<small class="muted" style="display:block;margin-top:8px;color:var(--accent)">${ic('warn',12)} ${manqueCur} bloc(s) du jeu pas encore loggé(s) — le poids « éq. x1 » ci-dessus est sous-évalué tant que tu ne les saisis pas (avec leur multiplicateur).</small>`:''}
+    <small class="muted" style="display:block;margin-top:10px">${phrase} <span style="color:var(--faint)">Chaque bloc compte selon son multiplicateur (x16 = 16 éq. x1). Total loggé : ${nTot} blocs = <b>${poidsTot}</b> éq. x1 (mult. moyen x${multMoy.toFixed(1)}). Valeur ${valReel?'ancrée sur tes payouts réels':'estimée (aucun payout encore saisi)'}.</span></small>
     <small class="muted" style="display:block;margin-top:8px;border-top:1px solid var(--border);padding-top:10px">Généré <b>ce cycle</b> : ${fmtNum(cur.satsGagnes)} sats + ${fmtNum(cur.gmtGagnes,1)} GMT (≈ ${fmtUSD(cur.gainsUSD)}) &nbsp;·&nbsp; <b>depuis le début</b> : ${fmtNum(satsTot)} sats + ${fmtNum(gmtTot,1)} GMT (≈ ${fmtUSD(gTot)})</small>
   </div>`;
 }
@@ -1514,7 +1550,7 @@ function renderHistorique(){
     const roi = st.depUSD>0 ? (st.gainsUSD/st.depUSD).toFixed(2)+"×" : "—";
     const head = `<div class="hist-head">
       <span class="hist-range">${fmtDateUTC(debut,{day:"2-digit",month:"short"})} → ${fmtDateUTC(fin,{day:"2-digit",month:"short"})}</span>
-      <span class="hist-stat">${st.nbBlocs} bloc${st.nbBlocs>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi} · <span class="${st.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(st.netAbsoluUSD)}</span></span>
+      <span class="hist-stat">${(st.nbBlocsJeu!=null?st.nbBlocsJeu:st.nbBlocs)} bloc${(st.nbBlocsJeu!=null?st.nbBlocsJeu:st.nbBlocs)>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi} · <span class="${st.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(st.netAbsoluUSD)}</span></span>
     </div>`;
     const rows = groupes[k].map(e=>{
       const m = meta[e.type] || meta.jour;
@@ -1626,8 +1662,9 @@ function statsGlobales(){
       m.gmtPersoGagne = +(((m.gmtPersoGagne||0)+b.gmtPerso).toFixed(2));
     });
     cycles[k] = {
-      cycle:k, blocs:s.nbBlocs, depGmt:+s.depGmt.toFixed(2),
+      cycle:k, blocsLogges:s.nbBlocs, blocsJeu:s.nbBlocsJeu, depGmt:+s.depGmt.toFixed(2),
       satsGagnes:s.satsGagnes, gmtGagnes:+s.gmtGagnes.toFixed(2),
+      sourceGains: s.aPayout?"payout":(s.etat?"jeu":"blocs"),
       depUSD:+s.depUSD.toFixed(2), gainsUSD:+s.gainsUSD.toFixed(2), roiUSD:+s.roiUSD.toFixed(2),
       opexGmt:+s.opexGmt.toFixed(2), netAbsoluUSD:+s.netAbsoluUSD.toFixed(2),
       aPayout:s.aPayout, pxBtcUsd:+(s.pxBtc||0).toFixed(2), pxGmtUsd:+(s.pxGmt||0).toFixed(4),
