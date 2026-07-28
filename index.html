@@ -341,6 +341,7 @@
     <h1>⚔️ Miner Wars</h1>
     <div class="page-title" id="pageTitle"></div>
     <div class="prix" id="prixBox">chargement des prix…</div>
+    <button id="langBtn" onclick="basculerLangue()" title="Français / English" style="align-self:flex-start;margin-top:8px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:999px;padding:5px 13px;font-weight:800;font-size:.75rem;letter-spacing:.04em;cursor:pointer">EN</button>
   </header>
 
   <!-- ======================= ONGLET : SAISIE ======================= -->
@@ -393,7 +394,7 @@
   </section>
 
   <!-- ======================= ONGLET : PLAN (fiche de référence, statique) ======================= -->
-  <section id="tab-plan" class="hidden">
+  <section id="tab-plan" class="hidden" data-noi18n>
 
     <div class="card">
       <span class="kicker">Ta situation — solo en Dune</span>
@@ -617,6 +618,7 @@ let entries = lire("entries", []);
 let config  = lire("config", { thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null, opexQuotidien:0 });
 let prix    = lire("prices", null);   // { ts, gomining, bitcoin }  (en USD)
 let liveEtat = null;                  // override poussé par Claude (etat-live.json) pour le cycle en cours
+let LANG = lire("lang", "fr");        // langue de l'interface : "fr" (défaut) ou "en"
 let filtreHist = "all";
 let charts = {};
 
@@ -696,6 +698,7 @@ function afficherPrix(){
   const vieux = (Date.now() - prix.ts) > CACHE_PRIX_MS;
   box.innerHTML = `GMT <b>${fmtUSD(prix.gomining)}</b><br>BTC <b>${fmtUSD(prix.bitcoin)}</b>` +
                   `<br><small${vieux?' style="color:var(--red)"':''}>maj il y a ${age} min</small>`;
+  if(LANG==='en') traduireArbre(box);
   majConvNote();
 }
 
@@ -726,6 +729,62 @@ function gmtEnUSD(gmt){ return prix ? gmt * prix.gomining : 0; }
 /* ==========================================================================
    NAVIGATION
    ========================================================================== */
+/* ==========================================================================
+   I18N — bascule FR / EN. Le contenu est écrit en FRANÇAIS ; on traduit le DOM
+   APRÈS chaque rendu (I18N.exact = chaînes complètes, I18N.fragments = sous-chaînes).
+   Le dictionnaire est injecté plus bas via setI18N(...). LANG='fr' => aucun effet.
+   ========================================================================== */
+const I18N = { exact: {}, fragments: {}, _re: null };
+function setI18N(d){
+  I18N.exact = d.exact || {}; I18N.fragments = d.fragments || {};
+  const keys = Object.keys(I18N.fragments).sort((a,b)=>b.length-a.length);   // plus longs d'abord = priorité dans l'alternance
+  I18N._re = keys.length ? new RegExp(keys.map(k=>k.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'), 'g') : null;
+}
+function trLit(fr, en){ return LANG==='en' ? en : fr; }   // pour les rares chaînes câblées à la main (labels de graphiques)
+const _oTxt = new WeakMap(), _oTitle = new WeakMap(), _oPh = new WeakMap();
+function trFr(s){
+  if(!s) return s;
+  const key = s.trim();
+  if(key && I18N.exact[key] != null) return s.replace(key, I18N.exact[key]);   // nœud entier = correspondance exacte
+  if(!I18N._re) return s;
+  return s.replace(I18N._re, m => I18N.fragments[m] != null ? I18N.fragments[m] : m);   // sous-chaînes en UNE seule passe (pas de cascade)
+}
+function traduireArbre(root){
+  if(!root) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => (n.parentElement && n.parentElement.closest('[data-noi18n]')) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT });
+  const ns = []; while(w.nextNode()) ns.push(w.currentNode);
+  ns.forEach(n=>{ if(!_oTxt.has(n)) _oTxt.set(n, n.nodeValue); n.nodeValue = (LANG==='en') ? trFr(_oTxt.get(n)) : _oTxt.get(n); });
+  if(root.querySelectorAll) root.querySelectorAll('[title],[placeholder]').forEach(el=>{
+    if(el.closest('[data-noi18n]')) return;
+    if(el.hasAttribute('title')){ if(!_oTitle.has(el)) _oTitle.set(el, el.getAttribute('title')); el.setAttribute('title', LANG==='en'?trFr(_oTitle.get(el)):_oTitle.get(el)); }
+    if(el.hasAttribute('placeholder')){ if(!_oPh.has(el)) _oPh.set(el, el.getAttribute('placeholder')); el.setAttribute('placeholder', LANG==='en'?trFr(_oPh.get(el)):_oPh.get(el)); }
+  });
+}
+function ongletCourant(){
+  const tabs=["saisie","dashboard","graphiques","historique","plan","reglages"];
+  return tabs.find(id=>{ const el=document.getElementById("tab-"+id); return el && !el.classList.contains("hidden"); }) || "saisie";
+}
+function appliquerLangue(){
+  document.documentElement.lang = LANG;
+  const lb=document.getElementById("langBtn"); if(lb) lb.textContent = (LANG==='en') ? 'FR' : 'EN';
+  // Onglet Plan : prose riche => on échange tout le bloc HTML (FR <-> EN) au lieu de traduire nœud par nœud.
+  const plan=document.getElementById("tab-plan");
+  if(plan && typeof PLAN_EN!=='undefined'){
+    if(PLAN_FR===null) PLAN_FR = plan.innerHTML;
+    plan.innerHTML = (LANG==='en') ? PLAN_EN : PLAN_FR;
+    plan.querySelectorAll(".spellicon[data-spell]").forEach(el=> el.innerHTML = spellIcon(el.dataset.spell, 26));
+  }
+  const cur = ongletCourant();
+  if(cur==="dashboard") renderDashboard();
+  else if(cur==="graphiques") renderGraphiques();
+  else if(cur==="historique") renderHistorique();
+  else if(cur==="reglages") remplirConfig();
+  else renderRappelService();
+  afficherPrix();
+  traduireArbre(document.body);
+}
+function basculerLangue(){ LANG = (LANG==='en') ? 'fr' : 'en'; ecrire("lang", LANG); appliquerLangue(); }
+
 function switchTab(nom){
   ["saisie","dashboard","graphiques","historique","plan","reglages"].forEach(t=>{
     document.getElementById("tab-"+t).classList.toggle("hidden", t!==nom);
@@ -738,6 +797,7 @@ function switchTab(nom){
   if(nom==="historique") renderHistorique();
   if(nom==="reglages") remplirConfig();
   if(nom==="saisie") renderRappelService();
+  if(LANG==='en'){ if(pt) pt.textContent = trFr(pt.textContent); traduireArbre(document.getElementById("tab-"+nom)); }
   window.scrollTo(0,0);
 }
 
@@ -816,6 +876,7 @@ function ouvrirForm(type, id){
   html += `<button class="btn ghost" onclick="fermerForm()">Annuler</button>`;
 
   m.innerHTML = html;
+  if(LANG==='en') traduireArbre(m);
   document.getElementById("modalBg").classList.add("show");
 }
 function titreForm(t){ return t==="jour"?"Journée":t==="bloc"?"Bloc gagné":t==="payout"?"Payout":"Config du bot (par cycle)"; }
@@ -936,6 +997,7 @@ function renderRappelService(){
         ${faitAuj ? ic('check',14)+" Service fait aujourd'hui" : ic('warn',14)+" Service PAS encore fait aujourd'hui"}
       </div>
     </div>`;
+  if(LANG==='en') traduireArbre(el);
 }
 
 /* ==========================================================================
@@ -1212,6 +1274,7 @@ function renderDashboard(){
     ${renderCadence()}${renderRendement(s)}${renderService()}${renderApercu()}</details>`;  // DÉTAIL (replié)
 
   c.innerHTML = html;
+  if(LANG==='en') traduireArbre(c);
 }
 
 /* Strip "CE CYCLE" : 4 tuiles primaires + chip streak. Budget en barre de progression. */
@@ -1429,7 +1492,7 @@ function renderGraphiques(){
   charts.mult = new Chart(document.getElementById("chMult"), {
     type:"bar",
     data:{ labels: MULTIS.map(m=>"x"+m),
-      datasets:[{ label:"Blocs", data:parMult, backgroundColor:"#ecb63f", borderRadius:6 }] },
+      datasets:[{ label:trLit("Blocs","Blocks"), data:parMult, backgroundColor:"#ecb63f", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
@@ -1449,8 +1512,8 @@ function renderGraphiques(){
   charts.cumul = new Chart(document.getElementById("chCumul"), {
     type:"line",
     data:{ labels, datasets:[
-      { label:"Gains", data:serieG, borderColor:"#40cf87", backgroundColor:"transparent", tension:.25, pointRadius:0 },
-      { label:"Dépenses", data:serieD, borderColor:"#f0736f", backgroundColor:"transparent", tension:.25, pointRadius:0 } ] },
+      { label:trLit("Gains","Earnings"), data:serieG, borderColor:"#40cf87", backgroundColor:"transparent", tension:.25, pointRadius:0 },
+      { label:trLit("Dépenses","Spending"), data:serieD, borderColor:"#f0736f", backgroundColor:"transparent", tension:.25, pointRadius:0 } ] },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{legend:{labels:{boxWidth:12}}}, scales:{y:{beginAtZero:true}} }
   });
@@ -1461,7 +1524,7 @@ function renderGraphiques(){
   charts.bot = new Chart(document.getElementById("chBot"), {
     type:"line",
     data:{ labels: jours.map(e=>new Date(e.date).toLocaleDateString("fr-CA",{day:"2-digit",month:"2-digit"})),
-      datasets:[{ label:"Solde bot (GMT)", data: jours.map(e=>e.soldeBot),
+      datasets:[{ label:trLit("Solde bot (GMT)","Bot balance (GMT)"), data: jours.map(e=>e.soldeBot),
         borderColor:"#5b9bf2", backgroundColor:"rgba(91,155,242,.14)", fill:true, tension:.25, pointRadius:2 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:false}} }
   });
@@ -1477,7 +1540,7 @@ function renderGraphiques(){
   charts.blocsJour = new Chart(document.getElementById("chBlocsJour"), {
     type:"bar",
     data:{ labels: joursTri.map(k=> fmtDateUTC(k+"T00:00:00Z",{day:"2-digit",month:"2-digit"})),
-      datasets:[{ label:"Blocs", data: joursTri.map(k=>parJour[k]), backgroundColor:"#40cf87", borderRadius:6 }] },
+      datasets:[{ label:trLit("Blocs","Blocks"), data: joursTri.map(k=>parJour[k]), backgroundColor:"#40cf87", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
 
@@ -1491,8 +1554,8 @@ function renderGraphiques(){
   detruireChart("blocsCycle");
   charts.blocsCycle = new Chart(document.getElementById("chBlocsCycle"), {
     type:"bar",
-    data:{ labels: cyclesTri.map(k=> "Sem. " + fmtDateUTC(k+"T00:00:00Z",{day:"2-digit",month:"2-digit"})),
-      datasets:[{ label:"Blocs", data: cyclesTri.map(k=>parCycleB[k]), backgroundColor:"#ecb63f", borderRadius:6 }] },
+    data:{ labels: cyclesTri.map(k=> trLit("Sem. ","Wk ") + fmtDateUTC(k+"T00:00:00Z",{day:"2-digit",month:"2-digit"})),
+      datasets:[{ label:trLit("Blocs","Blocks"), data: cyclesTri.map(k=>parCycleB[k]), backgroundColor:"#ecb63f", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
 
@@ -1506,12 +1569,12 @@ function renderGraphiques(){
   charts.roiCycle = new Chart(document.getElementById("chRoiCycle"), {
     type:"bar",
     data:{ labels: labelsCycle, datasets:[
-      { label:"ROI", data: roiVals, order:2,
+      { label:trLit("ROI","ROI"), data: roiVals, order:2,
         backgroundColor: roiVals.map(v=> v>=1 ? "#40cf87" : "#f0736f"), borderRadius:6 },
-      { type:"line", label:"Seuil 1× (rentable)", data: roiVals.map(()=>1), order:1,
+      { type:"line", label:trLit("Seuil 1× (rentable)","1× threshold (breakeven)"), data: roiVals.map(()=>1), order:1,
         borderColor:"#98a1b3", borderDash:[5,4], borderWidth:1.5, pointRadius:0 } ] },
     options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:true, labels:{boxWidth:12}}, tooltip:{callbacks:{label:(ctx)=> ctx.datasetIndex===0 ? ctx.parsed.y.toFixed(2)+"×" : "seuil 1.00×"}}},
+      plugins:{legend:{display:true, labels:{boxWidth:12}}, tooltip:{callbacks:{label:(ctx)=> ctx.datasetIndex===0 ? ctx.parsed.y.toFixed(2)+"×" : trLit("seuil 1.00×","threshold 1.00×")}}},
       scales:{y:{beginAtZero:true}} }
   });
 
@@ -1520,8 +1583,8 @@ function renderGraphiques(){
   charts.gainsDep = new Chart(document.getElementById("chGainsDep"), {
     type:"bar",
     data:{ labels: labelsCycle, datasets:[
-      { label:"Gains", data: cyc2.map(c2=> +c2.s.gainsUSD.toFixed(2)), backgroundColor:"#40cf87", borderRadius:4 },
-      { label:"Dépenses", data: cyc2.map(c2=> +c2.s.depUSD.toFixed(2)), backgroundColor:"#f0736f", borderRadius:4 } ] },
+      { label:trLit("Gains","Earnings"), data: cyc2.map(c2=> +c2.s.gainsUSD.toFixed(2)), backgroundColor:"#40cf87", borderRadius:4 },
+      { label:trLit("Dépenses","Spending"), data: cyc2.map(c2=> +c2.s.depUSD.toFixed(2)), backgroundColor:"#f0736f", borderRadius:4 } ] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{boxWidth:12}}}, scales:{y:{beginAtZero:true}} }
   });
 
@@ -1536,7 +1599,7 @@ function renderGraphiques(){
   detruireChart("durees");
   charts.durees = new Chart(document.getElementById("chDurees"), {
     type:"bar",
-    data:{ labels: trLabels, datasets:[{ label:"Rounds", data: trCounts, backgroundColor:"#5b9bf2", borderRadius:6 }] },
+    data:{ labels: trLabels, datasets:[{ label:trLit("Rounds","Rounds"), data: trCounts, backgroundColor:"#5b9bf2", borderRadius:6 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
   });
 }
@@ -1552,7 +1615,7 @@ function renderHistorique(){
   const list = document.getElementById("histList");
   const es = [...entries].sort((a,b)=> new Date(b.date)-new Date(a.date))
              .filter(e=> filtreHist==="all" || e.type===filtreHist);
-  if(!es.length){ list.innerHTML = '<div class="empty">Aucune entrée.</div>'; return; }
+  if(!es.length){ list.innerHTML = '<div class="empty">Aucune entrée.</div>'; if(LANG==='en') traduireArbre(list); return; }
 
   // Regrouper par cycle (mardi→lundi), du plus récent au plus ancien
   const groupes = {};
@@ -1594,6 +1657,7 @@ function renderHistorique(){
     }).join("");
     return `<div class="hist-group">${head}<div class="tl card">${rows}</div></div>`;
   }).join("");
+  if(LANG==='en') traduireArbre(list);
 }
 function detailEntree(e){
   if(e.type==="jour"){
@@ -1791,7 +1855,7 @@ function escHtml(s){ return String(s).replace(/[&<>]/g, c=>({'&':'&amp;','<':'&l
 function escAttr(s){ return String(s).replace(/"/g,'&quot;'); }
 let toastTimer=null;
 function toast(msg){
-  const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+  const t=document.getElementById("toast"); t.textContent=(LANG==='en'?trFr(msg):msg); t.classList.add("show");
   clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),2200);
 }
 
@@ -1819,6 +1883,7 @@ function init(){
   renderRappelService();
   const pt0=document.getElementById("pageTitle"); if(pt0) pt0.textContent="Saisie rapide";
   document.querySelectorAll(".spellicon[data-spell]").forEach(el=> el.innerHTML = spellIcon(el.dataset.spell, 26));
+  appliquerLangue();   // applique la langue sauvegardée (no-op si FR)
   // Enregistrement du service worker (offline / installation iPhone).
   if("serviceWorker" in navigator){
     navigator.serviceWorker.register("sw.js").catch(e=>console.warn("SW non enregistré:", e.message));
@@ -1826,6 +1891,104 @@ function init(){
   // Rafraîchir les prix quand l'app revient au premier plan.
   document.addEventListener("visibilitychange", ()=>{ if(!document.hidden) chargerPrix(false); });
 }
+/* Plan traduit (échangé en bloc) */
+const PLAN_EN = `
+    <div class="card">
+      <span class="kicker">Your situation — solo in Dune</span>
+      <div class="grid" style="margin-top:6px">
+        <div class="stat"><div class="label">Power</div><div class="val">456<span style="font-size:.85rem;color:var(--muted);font-weight:600"> TH</span></div><div class="sub">EE 15 W/TH · +33% pts</div></div>
+        <div class="stat"><div class="label">Effective score</div><div class="val">608<span style="font-size:.85rem;color:var(--muted);font-weight:600"> pts/s</span></div></div>
+        <div class="stat"><div class="label">Objective</div><div class="val" style="font-size:1.15rem">Max net ROI</div><div class="sub">earnings − expenses</div></div>
+      </div>
+      <div class="warn" style="margin-top:16px"><b>Solo:</b> when you win you take 100% (BTC pool + personal GMT), but your win probability = your score alone against entire clans. Your spells are your <b>only lever</b>.</div>
+    </div>
+
+    <div class="card">
+      <span class="kicker">The spells — by efficiency</span>
+      <div class="spell-row"><span class="spellicon" data-spell="Power-up"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Power-up</b><span class="chip-price">21.31 GMT</span><span class="tag-accent">pillar</span></div><div class="tl-detail" style="margin-top:3px">×100 PPS · most efficient, cast early</div></div><span class="spell-eff pos">1.69 M<small>pts/token</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Echo"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Echo</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+ growing /2 min · long rounds</div></div><span class="spell-eff pos">1.38 M<small>pts/token</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Power boost"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Power boost</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+2K/s · steady, smoother than Echo</div></div><span class="spell-eff">1.20 M<small>pts/token</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Clan power-up"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Clan power-up</b><span class="chip-price">0.30 GMT</span></div><div class="tl-detail" style="margin-top:3px">×2 your base · ≈ Power boost (solo)</div></div><span class="spell-eff">1.22 M<small>pts/token</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Instant"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Instant</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+1M · guaranteed floor</div></div><span class="spell-eff">1.00 M<small>pts/token</small></span></div>
+      <div class="spell-row"><span class="spellicon" data-spell="Focus"></span><div style="flex:1;min-width:0"><div class="spell-line"><b>Focus</b><span class="chip-price">1 / 10 / 100</span></div><div class="tl-detail" style="margin-top:3px">+2.5M over 5 min · short rounds</div></div><span class="spell-eff neg">2.5 M<small>if ≤5 min, else 0</small></span></div>
+      <small class="muted" style="display:block;margin-top:10px">Fixed prices 1/10/100 (base/Super/Ultra) — the tier doesn't change efficiency. No synergy: a "combo" = Power-up first, then Echo/Power boost.</small>
+    </div>
+
+    <div class="card">
+      <span class="kicker">Bot setup — 24/7, concentrated</span>
+      <div class="prow"><span class="mbadge" style="color:var(--muted)">x1→x8</span><span class="tl-detail" style="margin:0"><b>EMPTY</b> setup — protects the budget from frequent rounds</span></div>
+      <div class="prow"><span class="mbadge" style="color:var(--accent)">x16</span><span class="tl-detail" style="margin:0"><b>Power-up ×1</b> (priority 2)</span></div>
+      <div class="prow"><span class="mbadge" style="color:var(--accent)">x32</span><span class="tl-detail" style="margin:0"><b>Power-up ×1</b> (priority 1) — the most profitable round</span></div>
+      <ul class="marks">
+        <li>Focus on high multipliers: competitive on few rounds &gt; diluted across many.</li>
+        <li class="bad">Never Focus on auto (lost on rounds &gt; 5 min).</li>
+        <li class="info">The round multiplier is imposed — you don't choose it.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="kicker">Budget — 100 US$/cycle</span>
+      <div class="grid" style="margin-top:6px">
+        <div class="stat"><div class="label">Budget / cycle</div><div class="val">~345<span style="font-size:.8rem;color:var(--muted);font-weight:600"> GMT</span></div><div class="sub">= 100 US$ (cap)</div></div>
+        <div class="stat"><div class="label">≈ Power-up / cycle</div><div class="val">~16</div><div class="sub">at 21.31 GMT/cast</div></div>
+      </div>
+      <ul class="marks">
+        <li>Set <b>budgetBotCycle ≈ 345 GMT</b> in Settings (= 100 US$ at today's price).</li>
+        <li class="info">Cap in US$, budget in GMT — if the price moves, recalculate (100 ÷ GMT price).</li>
+        <li class="bad">Watch "Bot budget left" on day 1: if it drains too fast → x32 only.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="kicker">The phases</span>
+      <div class="grid" style="margin-top:6px">
+        <div class="phase"><b style="color:var(--accent2)">Phase 1 — Baseline</b><div class="tl-detail" style="margin-top:6px">~2 cycles · bot OFF · 0 GMT. Measure your win rate without boosting. Check "passive cycle" in Settings.</div></div>
+        <div class="phase"><b style="color:var(--green)">Phase 2 — Bot 24/7</b><div class="tl-detail" style="margin-top:6px">Multiple cycles · Power-up x16/x32 · ~345 GMT. Only one variable changes at a time.</div></div>
+      </div>
+      <div class="warn" style="margin-top:14px">A single cycle proves nothing (lottery = big variance). Aim for ≥ 4-5 cycles.</div>
+    </div>
+
+    <div class="card">
+      <span class="kicker">Test sequence</span>
+      <div class="step"><span class="step-n">1</span><span>Power-up alone on x16/x32 — pillar effect vs passive.</span></div>
+      <div class="step"><span class="step-n">2</span><span>+ Echo ×2 on x32 — does stacking pay off?</span></div>
+      <div class="step"><span class="step-n">3</span><span>Echo → Power boost on x32 — variance vs stable.</span></div>
+      <div class="step"><span class="step-n">4</span><span>+ x8 Power boost — is widening worth the cost?</span></div>
+      <small class="muted" style="display:block;margin-top:10px">Each cycle: enter <b>the round duration</b> — that's what validates the spell ranking.</small>
+    </div>
+
+    <div class="card">
+      <span class="kicker">Routine</span>
+      <ul class="marks">
+        <li class="good"><b>Miner Service</b> as soon as it's off cooldown (~12 h): free, points + up to 3% discount. The paid bot does NOT do it.</li>
+        <li>Enter each <b>block won</b> (&lt; 15 s): multiplier, sats, GMT, duration.</li>
+        <li>Tuesday: <b>payout</b> + <b>Bot setup</b> (spells + GMT per multiplier).</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="kicker">Decision rules</span>
+      <ul class="marks">
+        <li class="good"><b>Continue</b> if median spell ROI &gt; 1 AND gain vs baseline &gt; 0 (≥ 3 cycles).</li>
+        <li class="bad"><b>Cut</b> if ROI &lt; 1 or no gain vs baseline → back to passive.</li>
+        <li><b>Raise the budget</b> after 2 consecutive cycles at ROI &gt; 1.</li>
+        <li class="info"><b>Solo lock:</b> if you win very little even boosted → structural problem, consider a clan.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <span class="kicker">To note in-game</span>
+      <ul class="marks">
+        <li><b>Your round duration</b> — validates the spell choice.</li>
+        <li><b>Win rate</b> (passive then boosted) — decides everything.</li>
+        <li class="info">Power-up: base or current PPS? Focus: really 0 if round &gt; 5 min?</li>
+      </ul>
+    </div>
+`;
+let PLAN_FR = null;
+
+// DICO I18N (généré, FR->EN)
+setI18N({"exact": {"TH total (puissance)": "Total TH (power)", "Efficacité énergétique moyenne (EE)": "Average energy efficiency (EE)", "Ligue": "League", "Budget GMT du bot par cycle": "Bot GMT budget per cycle", "OPEX quotidien par défaut (GMT — élec. + maintenance)": "Default daily OPEX (GMT — electricity + maintenance)", "ID CoinGecko du token GMT": "CoinGecko ID of the GMT token", "Marquer le cycle courant comme cycle passif de référence": "Mark the current cycle as the reference passive cycle", "Enregistrer": "Save", "Copier pour Claude": "Copy for Claude", "Exporter CSV": "Export CSV", "Exporter JSON": "Export JSON", "Importer un backup JSON": "Import a JSON backup", "Zone dangereuse": "Danger zone", "Tout effacer": "Erase everything", "Saisie": "Entry", "Graphiques": "Charts", "Historique": "History", "Réglages": "Settings", "chargement des prix…": "loading prices…", "Journée": "Day", "Bloc gagné": "Block won", "Payout mardi": "Tuesday payout", "Config bot": "Bot setup", "Convertisseur": "Converter", "Tape dans un champ, les autres se calculent (prix live).": "Type in one field, the others are calculated (live prices).", "Blocs gagnés par jour": "Blocks won per day", "Blocs gagnés par cycle": "Blocks won per cycle", "ROI par cycle (×)": "ROI per cycle (×)", "Blocs par multiplicateur": "Blocks per multiplier", "Durée des rounds gagnés (min)": "Duration of won rounds (min)", "Solde du Spell Bot": "Spell Bot balance", "Gains vs dépenses par cycle (USD)": "Earnings vs expenses per cycle (USD)", "Cumul gains vs dépenses (USD)": "Cumulative earnings vs expenses (USD)", "Tout": "All", "Journées": "Days", "Blocs": "Blocks", "Date requise": "Date required", "Valeurs négatives interdites": "Negative values not allowed", "Choisis un multiplicateur": "Choose a multiplier", "Renseigne au moins un multiplicateur": "Enter at least one multiplier", "Enregistré": "Saved", "Streak service": "Service streak", "Service fait aujourd'hui": "Service done today", "Service PAS encore fait aujourd'hui": "Service NOT done yet today", "Supprimer cette entrée ?": "Delete this entry?", "Supprimé": "Deleted", "Cycle passif de référence : ": "Reference passive cycle: ", "Aucun cycle passif marqué manuellement.": "No passive cycle marked manually.", "Config enregistrée": "Config saved", "Données copiées — colle-les dans Claude": "Data copied — paste it into Claude", "Copie impossible": "Cannot copy", "Dernier export : ": "Last export: ", "Aucun export encore.": "No export yet.", "Import réussi": "Import successful", "Fichier invalide": "Invalid file", "Effacer TOUTES les données Miner Wars ? Irréversible.": "Erase ALL Miner Wars data? This cannot be undone.", "Vraiment sûr ? Pense à exporter d'abord.": "Really sure? Remember to export first.", "Tout effacé": "All cleared", "Saisie rapide": "Quick entry", "prix hors-ligne": "prices offline", "Prix indisponibles (hors-ligne).": "Prices unavailable (offline).", "Tableau de bord": "Dashboard", "Plan de jeu": "Game plan", "— modifier": "— edit", "TH total": "Total TH", "GMT dépensé (bot)": "GMT spent (bot)", "GMT dépensé (manuel)": "GMT spent (manual)", "Solde du Spell Bot (GMT)": "Spell Bot balance (GMT)", "OPEX du jour (GMT — élec.+maintenance)": "Daily OPEX (GMT — elec.+maintenance)", "Blocs (jeu)": "Blocks (game)", "BTC total (jeu, en sats)": "Total BTC (game, in sats)", "GMT total (jeu)": "Total GMT (game)", "Multiplicateur": "Multiplier", "Récompense clan estimée (sats)": "Estimated clan reward (sats)", "Bloc perso estimé (GMT)": "Estimated personal block (GMT)", "Spells actifs": "Active spells", "Durée de la ronde (min, optionnel)": "Round duration (min, optional)", "BTC reçu (sats)": "BTC received (sats)", "GMT reçu": "GMT received", "Frais (sats)": "Fees (sats)", "À saisir une fois par cycle (le mardi). Le GMT dépensé par multiplicateur inclut les rounds perdus — c'est ce qui rend l'EV fiable.": "Enter once per cycle (on Tuesday). GMT spent per multiplier includes lost rounds — that's what makes the EV reliable.", "GMT dépensé ce cycle": "GMT spent this cycle", "Coût / cast (option.)": "Cost / cast (opt.)", "Annuler": "Cancel", "Config du bot (par cycle)": "Bot setup (per cycle)", "Chart.js indisponible (hors-ligne au premier lancement). Reconnecte-toi puis reviens.": "Chart.js unavailable (offline on first launch). Reconnect, then come back.", "Gains": "Earnings", "Dépenses": "Expenses", "Solde bot (GMT)": "Bot balance (GMT)", "Seuil 1× (rentable)": "1× break-even (profitable)", "seuil 1.00×": "break-even 1.00×", "Aucune entrée.": "No entries.", "Modifier": "Edit", "Supprimer": "Delete", "Ta situation — solo en Dune": "Your situation — solo in Dune", "Puissance": "Power", "EE 15 W/TH · +33 % pts": "EE 15 W/TH · +33% pts", "Score effectif": "Effective score", "Objectif": "Objective", "ROI net max": "Max net ROI", "gains − dépenses": "earnings − expenses", "Solo :": "Solo:", "quand tu gagnes tu prends 100 % (pool BTC + GMT perso), mais ta probabilité de gagner = ton seul score contre des clans entiers. Tes spells sont ton ": "when you win you take 100% (BTC pool + personal GMT), but your win probability = your score alone against entire clans. Your spells are your ", "seul levier": "only lever", "Les sorts — par efficacité": "The spells — by efficiency", "21,31 GMT": "21.31 GMT", "pilier": "pillar", "×100 PPS · le plus efficace, cast tôt": "×100 PPS · most efficient, cast early", "1,69 M": "1.69 M", "pts/jeton": "pts/token", "+ croissant /2 min · rounds longs": "+ growing /2 min · long rounds", "1,38 M": "1.38 M", "+2K/s · régulier, plus lisse qu'Echo": "+2K/s · steady, smoother than Echo", "1,20 M": "1.20 M", "0,30 GMT": "0.30 GMT", "×2 ta base · ≈ Power boost (solo)": "×2 your base · ≈ Power boost (solo)", "1,22 M": "1.22 M", "+1M · plancher garanti": "+1M · guaranteed floor", "1,00 M": "1.00 M", "+2,5M sur 5 min · rounds courts": "+2.5M over 5 min · short rounds", "2,5 M": "2.5 M", "si ≤5 min, sinon 0": "if ≤5 min, else 0", "Prix fixes 1/10/100 (base/Super/Ultra) — le palier ne change pas l'efficacité. Aucune synergie : un « combo » = Power-up d'abord, puis Echo/Power boost.": "Fixed prices 1/10/100 (base/Super/Ultra) — the tier doesn't change efficiency. No synergy: a \"combo\" = Power-up first, then Echo/Power boost.", "Setup du bot — 24/7, concentré": "Bot setup — 24/7, concentrated", " — protège le budget des rounds fréquents": " — protects the budget from frequent rounds", " (priorité 2)": " (priority 2)", " (priorité 1) — le round le plus payant": " (priority 1) — the most profitable round", "Concentre sur les hauts multiplicateurs : compétitif sur peu de rounds > dilué sur plein.": "Focus on high multipliers: competitive on few rounds > diluted across many.", "Jamais Focus en auto (perdu sur les rounds > 5 min).": "Never Focus on auto (lost on rounds > 5 min).", "Le multiplicateur du round est imposé — tu ne le choisis pas.": "The round multiplier is imposed — you don't choose it.", "= 100 US$ (plafond)": "= 100 US$ (cap)", "à 21,31 GMT/cast": "at 21.31 GMT/cast", "Mets ": "Set ", " dans Réglages (= 100 US$ au prix du jour).": " in Settings (= 100 US$ at today's price).", "Plafond en $US, budget en GMT — si le prix bouge, recalcule (100 ÷ prix GMT).": "Cap in US$, budget in GMT — if the price moves, recalculate (100 ÷ GMT price).", "Surveille « Budget bot restant » le 1ᵉʳ jour : s'il fond trop vite → x32 seul.": "Watch \"Bot budget remaining\" on day 1: if it drains too fast → x32 only.", "Les phases": "The phases", "~2 cycles · bot OFF · 0 GMT. Mesure ton taux de victoire sans booster. Coche « cycle passif » dans Réglages.": "~2 cycles · bot OFF · 0 GMT. Measure your win rate without boosting. Check \"passive cycle\" in Settings.", "Plusieurs cycles · Power-up x16/x32 · ~345 GMT. Une seule variable change à la fois.": "Multiple cycles · Power-up x16/x32 · ~345 GMT. Only one variable changes at a time.", "Un seul cycle ne prouve rien (loterie = grosse variance). Vise ≥ 4-5 cycles.": "A single cycle proves nothing (lottery = big variance). Aim for ≥ 4-5 cycles.", "Séquence de test": "Test sequence", "Power-up seul sur x16/x32 — effet du pilier vs passif.": "Power-up alone on x16/x32 — pillar effect vs passive.", "+ Echo ×2 sur x32 — le stacking paie-t-il ?": "+ Echo ×2 on x32 — does stacking pay off?", "Echo → Power boost sur x32 — variance vs stable.": "Echo → Power boost on x32 — variance vs stable.", "+ x8 Power boost — élargir vaut-il le coût ?": "+ x8 Power boost — is widening worth the cost?", "À chaque cycle : saisis ": "Each cycle: enter ", "la durée du round": "the round duration", " — c'est ce qui valide le classement des sorts.": " — that's what validates the spell ranking.", " dès le cooldown (~12 h) : gratuit, points + rabais jusqu'à 3 %. Le bot payant ne le fait PAS.": " as soon as it's off cooldown (~12 h): free, points + up to 3% discount. The paid bot does NOT do it.", "Saisis chaque ": "Enter each ", "bloc gagné": "block won", " (< 15 s) : multiplicateur, sats, GMT, durée.": " (< 15 s): multiplier, sats, GMT, duration.", "Mardi : ": "Tuesday: ", " (spells + GMT par multiplicateur).": " (spells + GMT per multiplier).", "Règles de décision": "Decision rules", "Continuer": "Continue", " si ROI spells médian > 1 ET gain vs baseline > 0 (≥ 3 cycles).": " if median spell ROI > 1 AND gain vs baseline > 0 (≥ 3 cycles).", "Couper": "Cut", " si ROI < 1 ou aucun gain vs baseline → retour passif.": " if ROI < 1 or no gain vs baseline → back to passive.", "Monter le budget": "Raise the budget", " après 2 cycles consécutifs à ROI > 1.": " after 2 consecutive cycles at ROI > 1.", "Verrou solo :": "Solo lock:", " si tu gagnes très peu même boosté → problème de structure, envisager un clan.": " if you win very little even boosted → structural problem, consider a clan.", "À relever en jeu": "To note in-game", "Durée de tes rounds": "Your round duration", " — valide le choix des sorts.": " — validates the spell choice.", "Taux de victoire": "Win rate", " (passif puis boosté) — décide de tout.": " (passive then boosted) — decides everything.", "Power-up : PPS de base ou courante ? Focus : vraiment 0 si round > 5 min ?": "Power-up: base or current PPS? Focus: really 0 if round > 5 min?", "VIDE": "EMPTY", "Blocs gagnés (total)": "Blocks won (total)", "Gains totaux ⓘ": "Total earnings ⓘ", "BTC (sats) + GMT perso, convertis en USD.": "BTC (sats) + personal GMT, converted to USD.", "Dépenses totales": "Total spending", "Net spells": "Spells net", "ROI global ⓘ": "Global ROI ⓘ", "Gains cumulés ÷ dépenses cumulées (tous cycles). > 1× = profitable.": "Cumulative earnings ÷ cumulative spending (all cycles). > 1× = profitable.", "Net absolu ⓘ": "Net total ⓘ", "Gains − dépenses − OPEX (élec./maintenance). « Est-ce que je gagne de l'argent tout court ».": "Earnings − spending − OPEX (electricity/maintenance). \"Am I even making money at all\".", "après OPEX": "after OPEX", "Meilleur bloc": "Best block", "Répartition des blocs par multiplicateur": "Block distribution by multiplier", "Sats moy": "Avg sats", "Sats total": "Total sats", "GMT perso moy": "Avg personal GMT", "(réf.)": "(ref.)", "Passif": "Passive", "Boosté": "Boosted", "Historique des cycles": "Cycle history", "Statut": "Status", "Dépense GMT": "GMT spent", "Net abs.": "Net tot.", "Blocs / jour": "Blocks / day", "Blocs / cycle": "Blocks / cycle", "Sats / jour": "Sats / day", "Projection blocs / mois": "Projected blocks / month", "au rythme actuel": "at current pace", "Aucun bloc saisi — commence par la baseline passive (bot OFF).": "No block entered — start with the passive baseline (bot OFF).", "Aucun cycle passif de référence marqué (Réglages) — indispensable pour mesurer l'effet du bot.": "No reference passive cycle marked (Settings) — essential to measure the bot's effect.", "Bienvenue": "Welcome", "Ton tableau de bord se remplira dès que tu saisiras des données. Pour démarrer :": "Your dashboard will fill up as soon as you enter data. To get started:", "Va dans <b>Réglages</b> et entre ta config (TH, EE, ligue, budget).": "Go to <b>Settings</b> and enter your config (TH, EE, league, budget).", "Fais une <b>baseline passive</b> (bot OFF) : clique <b>Miner Service</b> chaque jour + saisis une <b>Journée</b>.": "Do a <b>passive baseline</b> (bot OFF): click <b>Miner Service</b> every day + enter a <b>Day</b>.", "À chaque bloc gagné, ajoute un <b>Bloc</b> (< 15 s). Le mardi, saisis le <b>Payout</b>.": "For each block won, add a <b>Block</b> (< 15 s). On Tuesday, enter the <b>Payout</b>.", "Consulte l'onglet <b>Plan</b> pour la stratégie complète.": "Check the <b>Plan</b> tab for the full strategy.", "Voir le Plan": "See the Plan", "Prix indisponibles (hors-ligne). Les conversions USD sont à zéro jusqu'au retour du réseau.": "Prices unavailable (offline). USD conversions are zero until the network is back.", "Ce cycle": "This cycle", " · passif": " · passive", " · boosté": " · boosted", "Gains − dépenses de spells, hors OPEX.": "Earnings − spell spending, excluding OPEX.", "Gains − dépenses − OPEX.": "Earnings − spending − OPEX.", "Blocs gagnés": "Blocks won", "Budget bot": "Bot budget", "total du jeu": "game total", "estimations des blocs": "block estimates", "Définitif": "Final", "Chiffres du cycle mis à jour par Claude": "Cycle figures updated by Claude", "Saisis quelques blocs (avec leur multiplicateur) + un payout pour estimer la valeur.": "Enter a few blocks (with their multiplier) + a payout to estimate the value.", "Cycle passif : aucune dépense de spells à rembourser — chaque bloc est du profit (hors OPEX).": "Passive cycle: no spell spending to repay — every block is profit (excluding OPEX).", "Seuil de rentabilité — cette semaine": "Break-even — this week", "Gains ÷ somme des multiplicateurs. Un bloc x16 vaut 16 éq. x1. Ancrée sur tes payouts réels dès qu'il y en a.": "Earnings ÷ sum of multipliers. An x16 block is worth 16 x1-equiv. Anchored on your actual payouts as soon as there are any.", "Valeur d'un éq. x1 ⓘ": "Value of one x1-equiv ⓘ", "réel (payouts)": "actual (payouts)", "pas encore de données": "no data yet", "Dépense ce cycle": "Spending this cycle", "Dépense ÷ valeur d'un équivalent x1.": "Spending ÷ value of one x1-equiv.", "Éq. x1 pour être even ⓘ": "x1-equiv to break even ⓘ", "sur les spells": "on spells", "Éq. x1 gagnés": "x1-equiv won", "Chaque bloc compte selon son multiplicateur (x16 = 16 éq. x1).": "Each block counts by its multiplier (x16 = 16 x1-equiv).", "ancrée sur tes payouts réels": "anchored on your actual payouts", "estimée (aucun payout encore saisi)": "estimated (no payout entered yet)", "Par multiplicateur": "By multiplier", "Pas encore de blocs.": "No blocks yet.", "EV = gains ÷ GMT réellement dépensé (Config bot). > 1× = profitable.": "EV = earnings ÷ GMT actually spent (Bot setup). > 1× = profitable.", "EV approx. au prorata (aucune Config bot). Ajoute-en une pour fiabiliser.": "EV approx. pro-rated (no Bot setup). Add one to make it reliable.", "Gains ÷ GMT dépensé, par multiplicateur.": "Earnings ÷ GMT spent, by multiplier.", "Pourquoi — par multiplicateur ⓘ": "Why — by multiplier ⓘ", "Rendement des blocs (cycle)": "Block yield (cycle)", "Sats moyens / bloc": "Average sats / block", "GMT perso moyen / bloc": "Average personal GMT / block", "Dépenses GMT du cycle ÷ blocs gagnés.": "Cycle GMT spending ÷ blocks won.", "Coût GMT / bloc ⓘ": "GMT cost / block ⓘ", "Fait aujourd'hui": "Done today", "Pas encore fait aujourd'hui": "Not done yet today", "Le verdict": "The verdict", "Verdict indisponible": "Verdict unavailable", "Prix hors-ligne — reconnecte-toi.": "Prices offline — reconnect.", "Objectif : <b>3 cycles passifs complets</b> (bot OFF) avant de tester le bot, pour que ta moyenne ne dépende pas de la chance. Le cycle en cours compte dès que tu saisis son <b>payout du mardi</b>.": "Goal: <b>3 full passive cycles</b> (bot OFF) before testing the bot, so your average doesn't depend on luck. The current cycle counts as soon as you enter its <b>Tuesday payout</b>.", "cycles complets — chaque payout du mardi en valide un. Ensuite on lance le bot.": "full cycles — each Tuesday payout validates one. Then we launch the bot.", "Baseline prête — lance le bot": "Baseline ready — launch the bot", "cycles passifs de référence. Lance le Spell Bot un cycle pour voir s'il fait mieux que le passif.": "reference passive cycles. Launch the Spell Bot for one cycle to see if it beats passive.", "Match nul — trop tôt": "Tie — too early", "Booster paye": "Boosting pays", "Reste passif": "Stay passive", "confiance faible": "low confidence", "Écart de ROI net moyen (spells) entre tes cycles boostés et passifs.": "Average net ROI gap (spells) between your boosted and passive cycles.", "Détail & analyse long-terme": "Detail & long-term analysis"}, "fragments": {"cycle(s) passif(s) détecté(s) automatiquement (dépense GMT ≈ 0) — le verdict s'appuie déjà dessus.": "passive cycle(s) detected automatically (GMT spend ≈ 0) — the verdict already relies on them.", "entrées ? Cela remplacera les données actuelles.": "entries? This will replace the current data.", "maj il y a": "updated", "1 000 sats =": "1,000 sats =", "<b>État du jeu</b> (optionnel) — recopie les 3 totaux du cycle affichés dans Miner Wars. Sert de référence autoritaire pour les gains estimés + repère les blocs oubliés.": "<b>Game state</b> (optional) — copy the 3 cycle totals shown in Miner Wars. Serves as the authoritative reference for estimated earnings + flags forgotten blocks.", "Le BTC se saisit en <b>sats</b> (ex. 0,00211 BTC = 211 000 sats).": "BTC is entered in <b>sats</b> (e.g. 0.00211 BTC = 211,000 sats).", "Montants <b>approximatifs</b> affichés en jeu — le vrai total est figé au <b>payout du mardi</b>. Saisis l'estimation ; le ROI se recalera sur le payout.": "<b>Approximate</b> amounts shown in-game — the real total is locked at the <b>Tuesday payout</b>. Enter the estimate; ROI will re-sync to the payout.", "Sem. ": "Wk ", "Bloc x": "Block x", " bloc": " block", "Dépenses :": "Expenses:", "Solde bot": "Bot balance", "GMT perso": "GMT personal", "Reçu ": "Received ", "· frais ": "· fees ", "Config bot": "Bot setup", "Vue d'ensemble —": "Overview —", "cycles suivis": "cycles tracked", "cycle suivis": "cycle tracked", "Cadence — sur": "Pace — over", "jours suivis": "days tracked", "jour suivis": "day tracked", "Budget bot du cycle à": "Bot budget for the cycle at", "il va bientôt s'arrêter.": "it will stop soon.", "Net absolu négatif sur tes": "Net total negative over your last", "derniers cycles — tu paies plus que tu ne gagnes (OPEX inclus).": "cycles — you're paying more than you earn (OPEX included).", "Aucun bloc gagné depuis": "No block won in", "jours.": "days.", "Meilleur cycle :": "Best cycle:", "× de ROI.": "× ROI.", "ROI en hausse sur les": "ROI rising over the last", "ROI en baisse sur les": "ROI falling over the last", "derniers cycles boostés.": "boosted cycles.", "Multiplicateur moyen de tes blocs gagnés :": "Average multiplier of your blocks won:", "blocs).": "blocks).", "bloc).": "block).", " j · service": " d · service", "GMT dépensés": "GMT spent", "GMT restants /": "GMT left /", "Rang du clan :": "Clan rank:", "Gains provisoires (": "Provisional earnings (", ") — figés au payout du mardi.": ") — frozen at the Tuesday payout.", "Réf. jeu :": "Game ref:", "blocs · ": "blocks · ", "bloc · ": "block · ", "tu as loggé": "you logged", "il en manque": "missing", "à saisir": "to enter", "plus que le jeu, vérifie": "more than the game, check", "blocs loggés collent": "logged blocks match", "payout du mardi encaissé": "Tuesday payout received", "Réconciliation :": "Reconciliation:", "sats estimés vs": "est. sats vs", "réels (payout) —": "actual (payout) —", "le ROI se base sur le payout": "ROI is based on the payout", "un x16 ≈": "one x16 ≈", " · estimé": " · estimated", "avec OPEX": "with OPEX", "bloc(s) loggé(s)": "logged block(s)", "au jeu": "in game", "bloc(s) du jeu pas encore loggé(s) —": "game block(s) not yet logged —", "le poids « éq. x1 » ci-dessus est sous-évalué": "the « x1-equiv » weight above is under-counted", "tant que tu ne les saisis pas (avec leur multiplicateur)": "until you enter them (with their multiplier)", "Mode live :": "Live mode:", "le détail « éq. x1 » par bloc n'est pas fourni (pas de multiplicateurs)": "the per-block « x1-equiv » detail isn't provided (no multipliers)", "les gains et le net ci-dessus restent exacts": "the earnings and net above stay accurate", "Total loggé :": "Total logged:", " blocs = ": " blocks = ", "éq. x1 (mult. moyen x": "x1-equiv (avg mult. x", ". Valeur ": ". Value ", "Généré <b>ce cycle</b> :": "Generated <b>this cycle</b>:", "<b>depuis le début</b> :": "<b>since the start</b>:", "Even atteint : tes blocs (<b>": "Break-even reached: your blocks (<b>", "</b> éq. x1) couvrent tes ": "</b> x1-equiv) cover your ", " de dépenses.": " in spending.", "Encore ~<b>": "Still ~<b>", "</b> équivalents x1 pour rembourser tes ": "</b> x1-equiv to repay your ", " — un seul bloc x16 en donne 16.": " — a single x16 block gives 16.", " jours": " days", " jour": " day", "Baseline passive —": "Passive baseline —", "Continue en <b>passif</b> jusqu'à ": "Keep going <b>passive</b> until ", "Tu as ": "You have ", "Basé sur ": "Based on ", " cycle(s) boosté(s) vs ": " boosted cycle(s) vs ", " passif(s)": " passive", "% vs passif": "% vs passive", "Objectif :": "Objective:", "cycles passifs complets": "complete passive cycles", "avant de tester le bot, pour que ta moyenne ne dépende pas de la chance.": "before testing the bot, so your average doesn't depend on luck.", "Le cycle en cours compte dès que tu saisis son": "The current cycle counts once you enter its", "payout du mardi": "Tuesday payout", "Continue en": "Keep going in", "jusqu'à": "until", "cycles complets — chaque payout du mardi en valide un. Ensuite on lance le bot.": "complete cycles — each Tuesday payout validates one. Then we launch the bot.", "Chiffres du cycle mis à jour par Claude": "Cycle figures updated by Claude", "mis à jour": "updated", "total du jeu": "game total", "Généré ce cycle :": "Generated this cycle:", "Généré ": "Generated ", "depuis le début :": "since the start:", "depuis le début": "since the start", "réel (payouts)": "real (payouts)", "loggé(s)": "logged", "loggés": "logged", "loggé": "logged", " au jeu": " in game", "Chaque bloc compte selon son multiplicateur": "Each block counts by its multiplier", "ancrée sur tes payouts réels": "anchored on your real payouts", "estimée (aucun payout encore saisi)": "estimated (no payout entered yet)", "au prorata": "pro-rated", "un x16 en donne 16": "a single x16 gives 16", "équivalents x1 pour rembourser tes": "x1-equiv to repay your", "Encore ~": "Still ~", "Even atteint": "Break-even reached", "Cycle passif : aucune dépense de spells à rembourser": "Passive cycle: no spell spending to repay", "chaque bloc est du profit (hors OPEX)": "every block is profit (excluding OPEX)", "mult. moyen": "avg mult.", "il te manque": "you're missing", "bloc(s) du jeu pas encore loggé(s)": "game block(s) not yet logged", "le poids « éq. x1 » ci-dessus est sous-évalué tant que tu ne les saisis pas (avec leur multiplicateur)": "the « x1-equiv » weight above is under-counted until you enter them (with their multiplier)", "Définitif": "Final", "réels": "real", "réel": "real", "aujourd'hui": "today", "sur ": "on ", "juil.": "Jul", "Gains provisoires": "Provisional earnings", "estimations des blocs": "block estimates", "figés au payout du mardi": "frozen at the Tuesday payout", "ce cycle": "this cycle", "juill.": "Jul", "passif": "passive", "boosté": "boosted", "Boosté": "Boosted", "Passif": "Passive", "éq. x1": "x1-equiv", "(soir)": "(evening)", " à ": " at ", "de ROI": "ROI", "jour.": "day.", "Multiplicateur moyen de tes blocs gagnés": "Average multiplier of your blocks won", "ROI en baisse sur": "ROI falling over", "ROI en hausse sur": "ROI rising over", "les 2 derniers cycles boostés": "the last 2 boosted cycles", "Aucun cycle passif de référence marqué": "No reference passive cycle marked", "Journée": "Day", "Bloc gagné": "Block won", "Config du bot (par cycle)": "Bot setup (per cycle)", "— modifier": "— edit", "État du jeu": "Game status", "(optionnel) — recopie les 3 totaux du cycle affichés dans Miner Wars. Sert de référence autoritaire pour les gains estimés + repère les blocs oubliés.": "(optional) — copy the 3 cycle totals shown in Miner Wars. Authoritative reference for estimated earnings + spots forgotten blocks.", "Le BTC se saisit en": "BTC is entered in", "(ex. 0,00211 BTC = 211 000 sats).": "(e.g. 0.00211 BTC = 211,000 sats).", "Récompense clan estimée (sats)": "Estimated clan reward (sats)", "Bloc perso estimé (GMT)": "Estimated personal block (GMT)", "Spells actifs": "Active spells", "Durée de la ronde (min, optionnel)": "Round duration (min, optional)", "Montants": "Amounts", "approximatifs": "approximate", "affichés en jeu — le vrai total est figé au": "shown in-game — the real total is frozen at the", "Saisis l'estimation ; le ROI se recalera sur le payout.": "Enter the estimate; ROI will re-anchor on the payout.", "BTC reçu (sats)": "BTC received (sats)", "GMT reçu": "GMT received", "Frais (sats)": "Fees (sats)", "À saisir une fois par cycle (le mardi). Le GMT dépensé par multiplicateur inclut les rounds perdus — c'est ce qui rend l'EV fiable.": "Enter once per cycle (Tuesday). GMT spent per multiplier includes lost rounds — that's what makes the EV reliable.", "GMT dépensé ce cycle": "GMT spent this cycle", "Coût / cast (option.)": "Cost / cast (opt.)", "Annuler": "Cancel", "Enregistré": "Saved", "Date requise": "Date required", "Valeurs négatives interdites": "Negative values not allowed", "Choisis un multiplicateur": "Pick a multiplier", "Rien à enregistrer": "Nothing to save", "Tout effacé": "Everything erased", "Streak service": "Service streak"}});
 init();
 </script>
 </body>
