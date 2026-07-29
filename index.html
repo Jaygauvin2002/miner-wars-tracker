@@ -1107,7 +1107,9 @@ function statsCycle(debut){
   // ÉLECTRICITÉ : calculable (kWh × 24 × ton TH × EE / 1000), ne dépend que de TES inputs.
   // SERVICE (maintenance) : dépend du TH TOTAL de tous les joueurs du round = donnée CACHÉE → pas calculable d'avance.
   //   On l'estime avec ton Service RÉEL du dernier cycle payé, proratisé. Exact au payout.
-  const elecEstim    = (_th>0 && kwhEst>0 && eeEst>0) ? _jours * _th * kwhEst*24*eeEst/1000 : 0;
+  // Électricité : formule si tarif kWh + W/TH ligue connus ; sinon on proratise l'Électricité RÉELLE du dernier payout.
+  const elecEstim = (_th>0 && kwhEst>0 && eeEst>0) ? _jours * _th * kwhEst*24*eeEst/1000
+    : (_lastPay && _lastPay.elecUSD!=null ? (+_lastPay.elecUSD||0) * _jours/7 : 0);
   // SERVICE (formule du jeu) = 0,0089 × 7 × round_power (TH total du round) × Σmult gagnés ÷ multiplier_count.
   //  multiplier_count ≈ 2066 = nb de rounds/cycle (calibré sur données réelles : 39 540 TH · 34 blocs → 40,54 $).
   //  S'accumule par bloc gagné (Σmult = compteur du jeu). Repli : Service du dernier payout proratisé.
