@@ -1823,7 +1823,7 @@ function remplirConfig(){
   document.getElementById("cfgEe").value = config.eeMoyenne||"";
   document.getElementById("cfgLeague").value = config.league||"";
   document.getElementById("cfgBudget").value = config.budgetBotCycle||"";
-  document.getElementById("cfgElecKwh").value = config.elecKwh||"";
+  document.getElementById("cfgElecKwh").value = config.elecKwh||"0.06";  // pré-rempli (vraie valeur) : un clic « Enregistrer » suffit à le sauver
   document.getElementById("cfgCgId").value = config.coingeckoId||"gmt-token";
   const cycleCourant = cleCycle(new Date());
   document.getElementById("cfgPassif").checked = config.passiveCycleStart===cycleCourant;
