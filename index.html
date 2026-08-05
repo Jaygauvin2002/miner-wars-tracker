@@ -1232,7 +1232,7 @@ function statsCycle(debut){
 
   return { es, jours, blocs, payouts, aPayout, live: !!live, liveMaj: live? live.maj : null, liveFinal: !!livePay,
     rankBtc: live&&live.rankBtc!=null? live.rankBtc:null, rankGmt: live&&live.rankGmt!=null? live.rankGmt:null, botOn: live&&live.botOn!=null? live.botOn:null,
-    etat, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, depGmt, opexGmt, feeUSD, feeSaisi, feeSrc, feeDiag, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, netReel, netReelGmt, netSrc, soldeFin, soldeDebut, thAchatGmt, projNetUSD, projSrc, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
+    etat, etatDate: etatJ?etatJ.date:null, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, depGmt, opexGmt, feeUSD, feeSaisi, feeSrc, feeDiag, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, netReel, netReelGmt, netSrc, soldeFin, soldeDebut, thAchatGmt, projNetUSD, projSrc, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
 // Tous les cycles présents dans les données, du plus ancien au plus récent.
@@ -1477,6 +1477,9 @@ function renderStripCycle(s, prev){
   const bAff  = s.nbBlocsJeu!=null ? s.nbBlocsJeu : loggedMult;
   const bPrev = prev ? (prev.nbBlocsJeu!=null ? prev.nbBlocsJeu : prev.blocs.reduce((a,b)=>a+b.multiplicateur,0)) : null;
   const manque = s.nbBlocsJeu!=null ? s.nbBlocsJeu - loggedMult : 0;
+  // Bloc loggé APRÈS le dernier total du jeu ? → le total du jeu est juste périmé, pas une vraie incohérence.
+  const dernierBlocDate = s.blocs.length ? s.blocs.reduce((a,b)=> new Date(b.date)>new Date(a.date)?b:a).date : null;
+  const blocPlusRecent = dernierBlocDate && s.etatDate && new Date(dernierBlocDate) > new Date(s.etatDate);
   return `<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">
       <span class="kicker" style="margin:0">Ce cycle${s.live?` <span style="color:var(--accent2);font-weight:700;text-transform:none;letter-spacing:0;font-size:.72rem">· ⟳&nbsp;live${s.botOn===false?'&nbsp;·&nbsp;passif':(s.botOn===true?'&nbsp;·&nbsp;boosté':'')}</span>`:''}</span>
@@ -1495,7 +1498,7 @@ function renderStripCycle(s, prev){
     ${!s.aPayout && !s.netReel && s.feeDiag ? renderFeeDiag(s.feeDiag) : ''}
     ${(s.rankBtc!=null||s.rankGmt!=null) ? `<small class="muted" style="display:block;margin-top:8px">Rang du clan : ${s.rankBtc!=null?`BTC <b>#${s.rankBtc}</b>`:''}${(s.rankBtc!=null&&s.rankGmt!=null)?' · ':''}${s.rankGmt!=null?`GMT <b>#${s.rankGmt}</b>`:''}</small>` : ''}
     ${!s.aPayout && !s.netReel && (s.nbBlocs||s.etat) ? `<small class="muted">${ic('clock',12)} Gains provisoires (${s.etat?'total du jeu':'estimations des blocs'}) — figés au payout du mardi.</small>` : ''}
-    ${!s.aPayout && !s.live && s.nbBlocsJeu!=null ? `<small class="muted" style="display:block;margin-top:6px">Réf. jeu : <b>${s.nbBlocsJeu}</b> blocs (multiplicateurs additionnés) · ${fmtNum(s.etat.btcSats||0)} sats · ${fmtNum(s.etat.gmt||0,1)} GMT — ${manque>0?`<span style="color:var(--accent)">tes blocs loggés = ${loggedMult}, il en manque ${manque}</span>`:(loggedMult>s.nbBlocsJeu?`<span style="color:var(--red)">tes blocs loggés = ${loggedMult} (plus que le jeu, vérifie)</span>`:`<span style="color:var(--green)">tes blocs loggés collent (${loggedMult}) ${ic('check',12)}</span>`)}</small>` : ''}
+    ${!s.aPayout && !s.live && s.nbBlocsJeu!=null ? `<small class="muted" style="display:block;margin-top:6px">Réf. jeu : <b>${s.nbBlocsJeu}</b> blocs (multiplicateurs additionnés) · ${fmtNum(s.etat.btcSats||0)} sats · ${fmtNum(s.etat.gmt||0,1)} GMT — ${manque>0?`<span style="color:var(--accent)">tes blocs loggés = ${loggedMult}, il en manque ${manque}</span>`:(loggedMult>s.nbBlocsJeu?(blocPlusRecent?`<span style="color:var(--muted)">tes blocs loggés = ${loggedMult} — bloc récent pas encore dans le total du jeu (mets-le à jour à ta prochaine Journée) ${ic('info',12)}</span>`:`<span style="color:var(--red)">tes blocs loggés = ${loggedMult} (plus que le jeu, vérifie)</span>`):`<span style="color:var(--green)">tes blocs loggés collent (${loggedMult}) ${ic('check',12)}</span>`)}</small>` : ''}
     ${s.live ? `<small class="muted" style="display:block;margin-top:6px">${ic('info',12)} ${s.liveFinal?`<b style="color:var(--green)">Définitif</b> — payout du mardi encaissé`:`Chiffres du cycle mis à jour par Claude`}${s.liveMaj?` · <b>${s.liveMaj}</b>`:''}.</small>` : ''}
     ${s.aPayout && !s.netReel ? `<small class="muted">${ic('check',12)} Payout — récompense <b>${fmtUSD(s.gainsUSD)}</b>${s.feeUSD>0?` − frais <b>${fmtUSD(s.feeUSD)}</b>`:''} = net <b>${fmtUSD(s.gainsUSD - s.feeUSD)}</b> ; c'est la vérité du cycle.</small>` : ''}
     ${s.netReel && s.feeUSD>0 ? `<small class="muted" style="display:block;margin-top:6px">${ic('info',12)} Frais réels saisis : élec + service = <b>${fmtUSD(s.feeUSD)}</b> (pour l'analyse ; déjà inclus dans le net du solde).</small>` : ''}
