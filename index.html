@@ -1182,12 +1182,10 @@ function statsCycle(debut){
     const pDate = new Date(_payoutSolde.date);
     const avant = entries.filter(x=> x.soldeWalletGmt!=null && new Date(x.date) < pDate)
       .sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
-    if(avant){
-      soldeFin = +_payoutSolde.soldeWalletGmt;   // solde APRÈS payout
-      soldeDebut = +avant.soldeWalletGmt;          // solde AVANT payout (relevé le plus récent d'avant)
-      netReelGmt = soldeFin - soldeDebut + thAchatGmt;
-      netReelUSD = netReelGmt * pxGmt; netSrc = 'solde';
-    }
+    soldeFin = +_payoutSolde.soldeWalletGmt;                 // solde APRÈS payout
+    soldeDebut = avant ? +avant.soldeWalletGmt : 0;          // solde AVANT payout ; aucun relevé (1er cycle) => wallet supposé vide
+    netReelGmt = soldeFin - soldeDebut + thAchatGmt;
+    netReelUSD = netReelGmt * pxGmt; netSrc = 'solde';
   }
   const netReel = netReelUSD!=null;
   // PROJECTION en cours de semaine (avant payout) : ancrée sur le NET RÉEL du dernier cycle payé,
