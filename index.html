@@ -878,17 +878,6 @@ function ouvrirForm(type, id){
     html += `<small class="muted">${ic('info',13)} <b>Entre le montant dans ton wallet APRÈS avoir tout reçu (mardi).</b> L'app calcule : ce montant <b>−</b> ton dernier solde de Journée avant le payout = ton <b>net du cycle</b>. (Pas besoin d'additionner les micro-transactions.)</small>`;
     html += champ("Solde GMT du wallet APRÈS le payout (tout reçu)", `<input type="number" inputmode="decimal" step="0.01" id="f_psolde" placeholder="ex. 112.20" value="${e&&e.soldeWalletGmt!=null? e.soldeWalletGmt : ''}">`);
     html += champ("Achats de TH ce cycle (GMT — optionnel, 0 pendant les tests)", `<input type="number" inputmode="decimal" step="0.01" id="f_pthachat" placeholder="0" value="${e&&e.thAchatGmt!=null? e.thAchatGmt : ''}">`);
-    html += `<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px"></div>`;
-    html += `<small class="muted">${ic('info',13)} <b>Frais du cycle (optionnel)</b> — tu peux ne remplir QUE Electricity + Service (les seuls que tu calcules). Sert à valider/analyser les frais ; pas nécessaire pour le net.</small>`;
-    html += `<div class="two">`;
-    html += champ("Electricity ($)", `<input type="number" inputmode="decimal" step="0.01" id="f_pElec" value="${e&&e.elecUSD!=null? e.elecUSD : ''}">`);
-    html += champ("Service ($)", `<input type="number" inputmode="decimal" step="0.01" id="f_pService" value="${e&&e.serviceUSD!=null? e.serviceUSD : ''}">`);
-    html += `</div>`;
-    html += `<small class="muted">${ic('warn',12)} Reward / PR : <b>laisse VIDE</b> si tu ne peux pas les séparer (ton net vient du solde, pas de ces champs).</small>`;
-    html += `<div class="two">`;
-    html += champ("Reward ($) — optionnel", `<input type="number" inputmode="decimal" step="0.01" id="f_pReward" value="${e&&e.rewardUSD!=null? e.rewardUSD : ''}">`);
-    html += champ("PR ($) — optionnel", `<input type="number" inputmode="decimal" step="0.01" id="f_pPR" value="${e&&e.prUSD!=null? e.prUSD : ''}">`);
-    html += `</div>`;
   }
   else if(type==="botcfg"){
     // Une entrée par cycle : ce que le bot a fait, PAR multiplicateur.
@@ -972,11 +961,6 @@ function sauverEntree(type){
     snapshotPrix(obj);
   }
   else if(type==="payout"){
-    const gv = id => { const v = document.getElementById(id).value; return v!=="" ? (parseFloat(v)||0) : null; };  // vide => null (pas 0)
-    obj.rewardUSD = gv("f_pReward");
-    obj.prUSD = gv("f_pPR");
-    obj.elecUSD = gv("f_pElec");
-    obj.serviceUSD = gv("f_pService");
     const psolde = document.getElementById("f_psolde").value, pthachat = document.getElementById("f_pthachat").value;
     obj.soldeWalletGmt = psolde!=="" ? Math.max(0, parseFloat(psolde)||0) : null;
     obj.thAchatGmt = pthachat!=="" ? Math.max(0, parseFloat(pthachat)||0) : null;
