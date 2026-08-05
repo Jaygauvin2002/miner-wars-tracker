@@ -661,9 +661,16 @@ function periodeRange(p){
 function dateDeCle(k){ return new Date(k + "T00:00:00Z"); }
 
 // Entrées du cycle : fenêtre [début, début + 7 j) en UTC.
+// EXCEPTION payout : il arrive le mardi (1er jour du cycle SUIVANT) et paie la semaine écoulée.
+//   → un payout daté dans [début+7, début+14) est attribué à CE cycle [début, début+7).
 function entreesDuCycle(debut){
   const fin = new Date(debut); fin.setUTCDate(fin.getUTCDate() + 7);
-  return entries.filter(e => { const d = new Date(e.date); return d >= debut && d < fin; });
+  const finNext = new Date(debut); finNext.setUTCDate(finNext.getUTCDate() + 14);
+  return entries.filter(e => {
+    const d = new Date(e.date);
+    if(e.type === "payout") return d >= fin && d < finNext;   // payout = cycle précédent
+    return d >= debut && d < fin;
+  });
 }
 
 // Formatage d'une date de JOURNÉE/CYCLE en UTC (montre la vraie journée GoMining, pas l'heure locale).
