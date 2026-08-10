@@ -1218,8 +1218,11 @@ function statsCycle(debut){
       }
     }
   }
-  // Net take-home : solde-delta réel (prime) > projection ancrée sur le dernier cycle > estimation brute−frais.
-  const netAbsoluUSD = netReel ? netReelUSD : (projNetUSD!=null ? projNetUSD : (gainsUSD - depUSD - feeUSD));
+  // TAKE-HOME = récompense − spells. Le saut de solde (netReelUSD) = la récompense déposée ; les spells ont été
+  //   dépensés AVANT le payout (déjà dans le "avant") → on les retranche. Passif : depUSD=0 → inchangé.
+  //   (Achats TH = investissement, déjà rajoutés dans netReelGmt, PAS retranchés.)
+  const netAbsoluUSD = netReel ? (netReelUSD - depUSD)
+    : (projNetUSD!=null ? (projNetUSD - depUSD) : (gainsUSD - depUSD - feeUSD));
 
   // Diagnostic de réconciliation blocs vs payout (repère les oublis de saisie)
   const satsBlocs = blocs.reduce((s,e)=>s+e.btcSats,0);
@@ -1640,8 +1643,8 @@ function renderVerdict(){
   }
   if(!boostes.length) return `<div class="card hero">${kick}<div class="verdict-label">Baseline prête — lance le bot</div>
     <p class="muted" style="margin-top:8px;font-size:.9rem">Tu as ${passifs.length} cycles passifs de référence. Lance le Spell Bot un cycle pour voir s'il fait mieux que le passif.</p></div>`;
-  const roiP = moyenne(passifs.map(c=>c.s.roiUSD));
-  const roiB = moyenne(boostes.map(c=>c.s.roiUSD));
+  const roiP = moyenne(passifs.map(c=>c.s.netAbsoluUSD));   // net réel take-home (solde − spells)
+  const roiB = moyenne(boostes.map(c=>c.s.netAbsoluUSD));
   const diff = roiB - roiP;
   const nul = Math.abs(diff) < 0.01;
   const cls = nul ? '' : (diff>0?'pos':'neg');
@@ -1664,7 +1667,7 @@ function renderVerdict(){
         <div class="cmp-row"><span class="cl">Passif</span><span class="cmp-track"><span class="cmp-fill passif" style="width:${(Math.max(0,roiP)/maxv*100).toFixed(0)}%"></span></span><span class="cmp-val">${fmtUSD(roiP)}</span></div>
         <div class="cmp-row"><span class="cl">Boosté</span><span class="cmp-track"><span class="cmp-fill booste" style="width:${(Math.max(0,roiB)/maxv*100).toFixed(0)}%"></span></span><span class="cmp-val">${fmtUSD(roiB)}</span></div>
       </div>
-      ${sparkline(boostes.map(c=>c.s.roiUSD))}
+      ${sparkline(boostes.map(c=>c.s.netAbsoluUSD))}
     </div>
   </div></div>`;
 }
