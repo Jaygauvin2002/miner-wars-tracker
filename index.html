@@ -848,11 +848,9 @@ function ouvrirForm(type, id){
   if(type==="jour"){
     const _lastTh = entries.filter(x=>x.type==="jour" && x.thTotal!=null).sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
     html += champ("Ma puissance — TH total (change par cycle)", `<input type="number" inputmode="decimal" id="f_th" placeholder="456" value="${e? e.thTotal : (_lastTh? _lastTh.thTotal : (config.thTotal||''))}">`);
-    html += `<div class="two">`;
-    html += champ("GMT dépensé (bot)", `<input type="number" inputmode="decimal" id="f_gbot" value="${e? e.gmtDepenseBot : ''}">`);
-    html += champ("GMT dépensé (manuel)", `<input type="number" inputmode="decimal" id="f_gman" value="${e? e.gmtDepenseManuel : ''}">`);
-    html += `</div>`;
-    html += champ("Solde du Spell Bot (GMT)", `<input type="number" inputmode="decimal" id="f_solde" value="${e? e.soldeBot : ''}">`);
+    html += champ("Solde restant du Spell Bot (GMT)", `<input type="number" inputmode="decimal" id="f_solde" placeholder="ex. 200" value="${e? e.soldeBot : ''}">`);
+    html += `<small class="muted">${ic('info',12)} L'app déduit ce que le bot a dépensé = la <b>baisse</b> de ce solde sur le cycle (le jeu ne montre pas la dépense, juste le solde). Note-le chaque jour, et à chaque fois que tu recharges le bot.</small>`;
+    html += champ("GMT dépensé à la main (hors bot — optionnel)", `<input type="number" inputmode="decimal" id="f_gman" value="${e? e.gmtDepenseManuel : ''}">`);
     html += champ("Solde GMT TOTAL du wallet (pour le net du cycle)", `<input type="number" inputmode="decimal" id="f_jsolde" placeholder="ex. 420.50" value="${e&&e.soldeWalletGmt!=null? e.soldeWalletGmt : ''}">`);
     html += `<div class="field-inline"><input type="checkbox" id="f_service" ${(!e || e.serviceFait)?'checked':''}><label for="f_service">Service fait aujourd'hui</label></div>`;
     html += `<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px"></div>`;
@@ -950,7 +948,7 @@ function sauverEntree(type){
 
   if(type==="jour"){
     obj.thTotal = num("f_th");
-    obj.gmtDepenseBot = num("f_gbot");
+    obj.gmtDepenseBot = 0;   // dépense bot dérivée de la baisse du solde du Spell Bot (plus de saisie manuelle)
     obj.gmtDepenseManuel = num("f_gman");
     obj.soldeBot = num("f_solde");
     const jsolde = document.getElementById("f_jsolde").value;
@@ -1057,7 +1055,12 @@ function statsCycle(debut){
   const blocs   = es.filter(e=>e.type==="bloc");
   const payouts = es.filter(e=>e.type==="payout");
 
-  let depGmt = jours.reduce((s,e)=> s + e.gmtDepenseBot + e.gmtDepenseManuel, 0);
+  // Dépense de spells = baisse du solde du Spell Bot sur le cycle (le user voit le solde, pas la dépense) :
+  //   spent = plus haut solde du cycle (funding) − dernier solde. + saisie manuelle (bot legacy) + dépense manuelle hors-bot.
+  const _sb = jours.filter(j=> j.soldeBot!=null && +j.soldeBot>0).sort((a,b)=> new Date(a.date)-new Date(b.date));
+  const botSpend = _sb.length>=2 ? Math.max(0, Math.max(..._sb.map(j=>+j.soldeBot)) - (+_sb[_sb.length-1].soldeBot)) : 0;
+  const _botManuel = jours.reduce((s,e)=> s + (+e.gmtDepenseBot||0), 0);   // legacy (anciennes entrées)
+  let depGmt = (_botManuel>0 ? _botManuel : botSpend) + jours.reduce((s,e)=> s + (+e.gmtDepenseManuel||0), 0);
   const opexGmt = jours.reduce((s,e)=> s + (e.opexQuotidien||0), 0); // élec.+maintenance (court, bot ON ou OFF)
 
   // GROUND TRUTH = le payout (ce qui est réellement reçu). Les blocs servent seulement
@@ -1235,7 +1238,7 @@ function statsCycle(debut){
 
   return { es, jours, blocs, payouts, aPayout, live: !!live, liveMaj: live? live.maj : null, liveFinal: !!livePay,
     rankBtc: live&&live.rankBtc!=null? live.rankBtc:null, rankGmt: live&&live.rankGmt!=null? live.rankGmt:null, botOn: live&&live.botOn!=null? live.botOn:null,
-    etat, etatDate: etatJ?etatJ.date:null, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, depGmt, opexGmt, feeUSD, feeSaisi, feeSrc, feeDiag, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, netReel, netReelGmt, netSrc, soldeFin, soldeDebut, thAchatGmt, projNetUSD, projSrc, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
+    etat, etatDate: etatJ?etatJ.date:null, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, depGmt, botSpend, opexGmt, feeUSD, feeSaisi, feeSrc, feeDiag, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, netReel, netReelGmt, netSrc, soldeFin, soldeDebut, thAchatGmt, projNetUSD, projSrc, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
 // Tous les cycles présents dans les données, du plus ancien au plus récent.
@@ -1470,7 +1473,7 @@ function renderFeeDiag(d){
 }
 function renderStripCycle(s, prev){
   const { streak, faitAuj } = calcStreakService();
-  const depBot = s.jours.reduce((a,e)=>a+e.gmtDepenseBot,0);
+  const depBot = s.botSpend||0;   // dépense bot dérivée de la baisse du solde du Spell Bot
   const budget = config.budgetBotCycle||0;
   const pct = budget>0 ? Math.min(100, depBot/budget*100) : 0;
   const reste = budget - depBot;
