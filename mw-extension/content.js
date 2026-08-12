@@ -93,23 +93,43 @@
     return 1;
   }
 
+  // Découverte : enregistre la FORME (clés) des endpoints liés aux blocs/récompenses non encore gérés,
+  // pour repérer où vivent les rewards par bloc (btc/gmt/owner). Léger : clés seulement, pas les données.
+  function shapeOf(x) {
+    if (Array.isArray(x)) return { array: true, n: x.length, itemKeys: (x.length && x[0] && typeof x[0] === 'object') ? Object.keys(x[0]).slice(0, 50) : [] };
+    if (x && typeof x === 'object') return { keys: Object.keys(x).slice(0, 50) };
+    return { type: typeof x };
+  }
+  function discover(url, d) {
+    try {
+      if (!/gomining\.com/.test(url)) return;
+      if (!/reward|block|round|histor|mining|prize|winn|earn|payout|bonus/i.test(url)) return;
+      let path = url; try { path = new URL(url).pathname; } catch (e) {}
+      S.seenUrls = S.seenUrls || {};
+      if (!S.seenUrls[path] && Object.keys(S.seenUrls).length < 80) S.seenUrls[path] = shapeOf(d);
+    } catch (e) {}
+  }
   function handle(url, obj) {
     try {
       if (!obj) return; const d = obj.data !== undefined ? obj.data : obj;
+      discover(url, d);
       if (url.includes('nft-game-ability/find-all')) { (Array.isArray(d) ? d : (d.array || [])).forEach(a => { if (a && a.id) S.abil[a.id] = a.name; }); }
-      else if (url.includes('nft-game/clan/get-my')) { S.clan = d; if (d && d.id && d.name) S.clanNames[d.id] = d.name; }
+      else if (url.includes('nft-game/clan/get-my')) { S.clan = d; if (d && d.id != null) { S.myId = d.id; if (d.name) S.clanNames[d.id] = d.name; } }
       else if (url.includes('nft-game-bot-balance/get-my')) S.botGmt = (+g(d, 'valueNumeric') || 0) / 1e18;
       else if (url.includes('nft-game-bot/index')) S.botCfg = Array.isArray(d) ? d : (d.array || d);
       else if (url.includes('nft-game/get-total-reward-by-user')) S.total = d;
       else if (url.includes('nft-game/league/get-user-positions-data')) S.pos = d;
       else if (url.includes('exchanges/getTokenPrice')) S.gmtPrice = g(d, 'value');
       else if (url.includes('nft-game/round/find-by-cycleId')) {
-        let n = 0;
-        extractRounds(d).forEach(r => { if (r && r.winnerClanId != null) { n++; const cw = r.clanWinner || {}; if (cw.clan && cw.clan.id && cw.clan.name) S.clanNames[cw.clan.id] = cw.clan.name; } });
+        const rs = extractRounds(d); let n = 0;
+        if (rs.length) { if (!S.sampleRound) S.sampleRound = rs[0]; if (S.myId != null && !S.sampleMyRound) { const mr = rs.find(r => r && r.winnerClanId === S.myId); if (mr) S.sampleMyRound = mr; } }
+        rs.forEach(r => { if (r && r.winnerClanId != null) { n++; const cw = r.clanWinner || {}; if (cw.clan && cw.clan.id && cw.clan.name) S.clanNames[cw.clan.id] = cw.clan.name; } });
         save(); render(); return n;
       }
       else if (url.includes('nft-game/round/get-last')) {
         if (d && d.id != null) {
+          if (!S.lastRoundKeys) S.lastRoundKeys = Object.keys(d);
+          if (Array.isArray(d.userRounds) && d.userRounds.length && !S.sampleUserRound) S.sampleUserRound = d.userRounds[0];
           if (d.botBalanceValueNumeric) S.botGmt = (+d.botBalanceValueNumeric || 0) / 1e18;
           if (d.cycleId != null) S.nowCy = d.cycleId;
           if (Array.isArray(d.userRounds) && d.userRounds.length) {
@@ -246,7 +266,7 @@
     const bs = box.querySelector('#mwscan'); if (bs) bs.onclick = () => { const a = +box.querySelector('#lgA').value || 1, b = +box.querySelector('#lgB').value || 40, n = +box.querySelector('#ncy').value || 1; scan(a, b, n); };
     const bt = box.querySelector('#mwstop'); if (bt) bt.onclick = () => { scanStop = true; };
     const bp = box.querySelector('#mwperso'); if (bp) bp.onclick = () => {
-      const j = JSON.stringify({ total: S.total, pos: S.pos, roster: S.roster, botGmt: S.botGmt, gmtPrice: S.gmtPrice, live: S.live }, null, 2);
+      const j = JSON.stringify({ total: S.total, pos: S.pos, botGmt: S.botGmt, gmtPrice: S.gmtPrice, live: S.live, myId: S.myId, nowCy: S.nowCy, seenUrls: S.seenUrls, sampleRound: S.sampleRound, sampleMyRound: S.sampleMyRound, sampleUserRound: S.sampleUserRound, lastRoundKeys: S.lastRoundKeys }, null, 2);
       const done = () => { bp.textContent = '✅ copié — colle dans le chat'; };
       try { navigator.clipboard.writeText(j).then(done).catch(() => { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }); }
       catch (e) { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }
