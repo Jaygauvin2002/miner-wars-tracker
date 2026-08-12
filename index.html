@@ -576,12 +576,13 @@
       #tab-clans .hm i.on{background:var(--green)}
     </style>
     <div class="card">
-      <h2>Espion — importer</h2>
-      <p class="muted" style="margin-top:0;line-height:1.5">Sur GoMining, clique <b>⬇︎</b> dans le panneau 🕵️ <b>MW Espion</b> pour télécharger <b>mw_spy.json</b>, puis dépose-le ici. Le tracker analyse tous les clans et te donne la stratégie de la semaine.</p>
-      <label>Importer mw_spy.json</label>
-      <input type="file" id="spyFile" accept="application/json" onchange="importSpy(event)" />
-      <div id="spyDrop" class="spydrop" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="spyDropHandler(event)">ou glisse le fichier ici</div>
-      <small class="muted" id="spyInfo" style="display:block;margin-top:8px"></small>
+      <h2>Espion — données</h2>
+      <p class="muted" style="margin-top:0;line-height:1.5">📡 <b>Synchro automatique</b> avec l'extension : scanne sur GoMining, les données arrivent ici <b>toutes seules</b> (aucun import à faire). Cette page se met à jour dès qu'il y a du nouveau.</p>
+      <small class="muted" id="spyInfo" style="display:block;margin-top:4px"></small>
+      <details style="margin-top:10px"><summary class="muted" style="cursor:pointer;font-size:.82rem">Import manuel (secours)</summary>
+        <input type="file" id="spyFile" accept="application/json" onchange="importSpy(event)" style="margin-top:6px" />
+        <div id="spyDrop" class="spydrop" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="spyDropHandler(event)">ou glisse le fichier ici</div>
+      </details>
     </div>
     <div id="spyStrategy"></div>
     <div class="card" id="spyFicheCard" style="display:none">
@@ -2142,7 +2143,8 @@ function remplirClans(){
   if(!data){ if(info)info.textContent="Aucune donnée importée pour l'instant."; if(strat)strat.innerHTML=""; if(card)card.style.display="none"; return; }
   const m=data.meta;
   const stale = !m.v || (data.clans[0] && data.clans[0].d7===undefined);
-  if(info) info.innerHTML=(stale?`<span style="color:var(--red);font-weight:700">⚠️ Données d'une ancienne version — ré-importe ton mw_spy.json pour activer le calendrier 7 jours.</span><br>`:'')+`<b>${m.clans}</b> clans · ${(m.rounds||0).toLocaleString('fr-CA')} rounds · ${m.leagues.length} ligues · cycles ${m.cycles.join(', ')} · importé ${(m.importedAt||'').slice(0,16).replace('T',' ')}`;
+  const auto = lire("clansAutoAt",0) ? `<span style="color:var(--green);font-weight:700">🟢 Reçu automatiquement de l'extension</span> · ` : '';
+  if(info) info.innerHTML=(stale?`<span style="color:var(--red);font-weight:700">⚠️ Données d'une ancienne version — re-scanne avec l'extension.</span><br>`:'')+auto+`<b>${m.clans}</b> clans · ${(m.rounds||0).toLocaleString('fr-CA')} rounds Dune · ${m.leagues.length} ligues · cycles ${m.cycles.join(', ')}`;
   renderSpyStrategy(data);
   const fc=document.getElementById("spyFicheCard"); if(fc) fc.style.display="";
   renderClanFiche();
@@ -2171,6 +2173,24 @@ function renderClanFiche(){
       +`</div>`;
   }).join('');
 }
+
+// SYNCHRO AUTO : l'extension dépose les données captées dans localStorage["mw_spy_raw"] → on importe tout seul.
+let __mwLastRaw=null;
+function autoImportSpy(){
+  try{
+    const raw=localStorage.getItem('mw_spy_raw');
+    if(!raw || raw===__mwLastRaw) return;
+    const parsed=JSON.parse(raw);
+    if(!(parsed.agg||parsed.rounds||parsed.clanNames)) return;
+    __mwLastRaw=raw;
+    ecrire("clans", computeSpy(parsed));
+    ecrire("clansAutoAt", Date.now());
+    if(typeof ongletCourant==='function' && ongletCourant()==='clans') remplirClans();
+  }catch(e){}
+}
+window.addEventListener('mw-spy-updated', autoImportSpy);   // poussé par l'extension
+setTimeout(autoImportSpy, 800);                              // au chargement
+setInterval(autoImportSpy, 6000);                            // filet de sécurité
 
 function renderSpyStrategy(data){
   const host=document.getElementById("spyStrategy"); if(!host) return;
