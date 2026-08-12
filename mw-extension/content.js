@@ -9,7 +9,8 @@
     clan: null, botGmt: null, botCfg: null, total: null, pos: null, gmtPrice: null,
     abil: {}, clanNames: {}, agg: {},
     byMultLg: {}, spLg: {}, durLg: {}, lgMax: {}, clanCyc: {},
-    seen: {}, cyc: {}, nSeen: 0, nowCy: null, roster: null, recipe: null, updated: null
+    seen: {}, cyc: {}, nSeen: 0, nowCy: null, roster: null, recipe: null, updated: null,
+    rewardBase: {}   // {cycleId: {btc,fund,own,at,trusted}} — cumul figé au début de chaque cycle (survit aux resets)
   };
   try { const o = JSON.parse(localStorage.getItem(LS) || 'null'); if (o) S = Object.assign(S, o); } catch (e) {}
   if (S.sv6 !== 7) { S.agg = {}; S.byMultLg = {}; S.spLg = {}; S.durLg = {}; S.lgMax = {}; S.clanCyc = {}; S.seen = {}; S.cyc = {}; S.nSeen = 0; S.sv6 = 7; try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} } // remise à zéro demandée
@@ -37,21 +38,33 @@
     })(obj, 0);
     return found;
   }
-  // Emballe l'état PERSO du joueur pour le tracker (récompenses du cycle, rang, solde bot, prix GMT).
-  // Champs API confirmés (2026-08-12) : get-total-reward-by-user = {depositBtc (BTC), depositGmtFund (pool),
-  // depositGmtFundOwner (part du joueur)} ; get-user-positions-data = {leagueId, clanRank, userRank}.
+  // Emballe l'état PERSO du joueur pour le tracker.
+  // Champs API confirmés (user 2026-08-12) : get-total-reward-by-user = valeurs CUMULÉES depuis le début du clan :
+  //   depositBtc (BTC cumulé), depositGmtFund (GMT total cumulé = owner share + minage), depositGmtFundOwner (owner share cumulé).
+  //   get-user-positions-data = {leagueId, clanRank, userRank}.
+  // Récompense DU CYCLE = cumul actuel − cumul au début du cycle (baseline mémorisée par cycleId, cf. rewardBase).
   function buildLive() {
     const L = { at: S.updated || null, cycleId: S.nowCy != null ? S.nowCy : null };
     if (S.gmtPrice != null) { const p = +S.gmtPrice; if (!isNaN(p)) L.pxGmt = p; }
     if (S.botGmt != null) { const b = +S.botGmt; if (!isNaN(b)) L.botGmt = b; }
     L.leagueId = g(S.pos, 'leagueId'); if (L.leagueId == null && S.roster) L.leagueId = S.roster.lg;
-    L.rank = g(S.pos, 'clanRank');        // rang du clan dans la ligue (user solo → son rang)
-    L.userRank = g(S.pos, 'userRank');
-    // Récompenses du cycle : depositBtc en unité BTC → sats (×1e8) ; GMT = part du joueur (…Owner), pas le fonds.
-    const btc = g(S.total, 'depositBtc'); L.sats = btc != null ? Math.round(+btc * 1e8) : null;
-    const own = g(S.total, 'depositGmtFundOwner'); L.gmt = own != null ? +own : null;
-    L.gmtFund = g(S.total, 'depositGmtFund');   // fonds GMT total de la ligue (info, pas ta récompense)
-    L.blocs = null;                             // nb de blocs non exposé par ces endpoints → reste manuel
+    L.rank = g(S.pos, 'clanRank'); L.userRank = g(S.pos, 'userRank');
+    const btcNow = g(S.total, 'depositBtc'), fundNow = g(S.total, 'depositGmtFund'), ownNow = g(S.total, 'depositGmtFundOwner');
+    L.satsCum = btcNow != null ? Math.round(+btcNow * 1e8) : null;   // cumul (info)
+    L.gmtCum = fundNow != null ? +fundNow : null;                    // cumul (info)
+    L.gmtOwner = ownNow != null ? +ownNow : null;
+    // Baseline par cycle : on fige le cumul la 1re fois qu'on voit ce cycleId. trusted = on surveillait déjà le cycle
+    // précédent (donc capté près du démarrage → diff fiable). Sinon (1re install en cours de cycle) : non fiable.
+    S.rewardBase = S.rewardBase || {};
+    const cy = S.nowCy;
+    if (cy != null && btcNow != null && fundNow != null && !S.rewardBase[cy]) {
+      S.rewardBase[cy] = { btc: +btcNow, fund: +fundNow, own: ownNow != null ? +ownNow : 0, at: S.updated || null, trusted: !!S.rewardBase[cy - 1] };
+    }
+    const base = (cy != null) ? S.rewardBase[cy] : null;
+    L.baseAt = base ? base.at : null; L.baseTrusted = base ? !!base.trusted : false;
+    L.sats = (base && base.trusted && btcNow != null) ? Math.round((+btcNow - base.btc) * 1e8) : null;   // récompense DU CYCLE
+    L.gmt = (base && base.trusted && fundNow != null) ? (+fundNow - base.fund) : null;                   // récompense DU CYCLE
+    L.blocs = null;   // nb de blocs non exposé par ces endpoints → reste manuel
     S.live = L;
   }
 
@@ -223,8 +236,10 @@
       (scanning ? `<button id="mwstop" class="btnr">⏹ Stop</button> <span class="s">${scanMsg}</span>` : `<button id="mwscan" class="btng">▶ Scanner</button> <span class="s">${scanMsg}</span>`) +
       `</div>` +
       (() => { const L = S.live || {}; const f = (v, d) => v == null ? '—' : (+v).toLocaleString('fr-CA', { maximumFractionDigits: d || 0 });
-        return `<div class="scan" style="margin-top:8px"><div class="hd">👤 Toi (live)</div>` +
-          `<div class="row2 s">💰 ${f(L.gmt, 2)} GMT · ₿ ${f(L.sats)} sats · 🧱 ${f(L.blocs)} blocs</div>` +
+        const cycleLine = (L.gmt != null || L.sats != null)
+          ? `<div class="row2 s">💰 ${f(L.gmt, 2)} GMT · ₿ ${f(L.sats)} sats <span style="opacity:.6">· ce cycle</span></div>`
+          : `<div class="row2 s">💰 ${f(L.gmtCum, 2)} · ₿ ${f(L.satsCum)} <span style="opacity:.6">· cumul (récompense par cycle auto dès le prochain mardi)</span></div>`;
+        return `<div class="scan" style="margin-top:8px"><div class="hd">👤 Toi (live)</div>` + cycleLine +
           `<div class="row2 s">🏅 rang ${L.rank == null ? '—' : L.rank} · 🤖 bot ${f(L.botGmt, 2)} GMT · GMT $${f(L.pxGmt, 4)}</div>` +
           `<button id="mwperso" class="btng" style="margin-top:6px;font-size:11px;padding:3px 8px">📋 copier données perso (debug)</button></div>`; })() +
       `<div class="row s" style="margin-top:8px;color:#8fd3a8">📡 Envoi auto vers ton tracker actif — ouvre ta page Miner Wars pour analyser.</div>`;

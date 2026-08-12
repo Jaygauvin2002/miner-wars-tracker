@@ -1549,17 +1549,25 @@ function renderLiveAuto(debut){
   const f = (v,d)=> v==null ? '—' : (+v).toLocaleString(LANG==='en'?'en-CA':'fr-CA',{maximumFractionDigits:d||0});
   const when = L._at ? new Date(L._at).toLocaleString(LANG==='en'?'en-CA':'fr-CA',{hour:'2-digit',minute:'2-digit'}) : '';
   const chip = (lab,val)=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:rgba(52,199,89,.12);color:var(--green);font-size:.76rem;font-weight:700;white-space:nowrap">${lab} ${val}</span>`;
+  const chipG = (lab,val)=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:var(--surface2);color:var(--muted);font-size:.76rem;font-weight:700;white-space:nowrap">${lab} ${val}</span>`;
+  const cycleOk = (L.gmt!=null || L.sats!=null);   // récompense du cycle fiable (baseline captée au démarrage)
+  const rewardChips = cycleOk
+    ? `${chip('💰 GMT', f(L.gmt,2))} ${chip('₿ sats', f(L.sats))} ${chipG('🧱 '+trLit('blocs (manuel)','blocks (manual)'), f(L.blocs))}`
+    : `${chipG('💰 GMT '+trLit('cumul','total'), f(L.gmtCum,2))} ${chipG('₿ sats '+trLit('cumul','total'), f(L.satsCum))}`;
+  const note = cycleOk
+    ? trLit('💰 GMT + ₿ sats = récompense BRUTE du cycle (BTC des blocs + GMT). Les frais élec./service quotidiens sont déduits plus bas pour le NET.','💰 GMT + ₿ sats = GROSS reward this cycle (block BTC + GMT). Daily electricity/service fees are deducted below for the NET.')
+    : trLit('⏳ Cycle capté en cours de route : la récompense du cycle (cumul − départ) devient automatique dès le prochain mardi. En attendant, saisie manuelle. Rang / solde bot / prix sont déjà à jour.','⏳ Cycle caught mid-way: the per-cycle reward (total − start) becomes automatic from next Tuesday. Manual entry meanwhile. Rank / bot balance / price are already live.');
   return `<div class="card" data-noi18n style="border-color:rgba(52,199,89,.35)">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
       <b style="font-size:.82rem">🟢 ${trLit('Live — capté par l’extension','Live — captured by the extension')}</b>
       <small class="muted">${when?('· '+when):''}</small>
-      <small class="muted" style="margin-left:auto">${trLit('remplace la saisie manuelle du cycle courant','overrides manual entry for the current cycle')}</small>
+      <small class="muted" style="margin-left:auto">${cycleOk?trLit('remplace la saisie manuelle du cycle courant','overrides manual entry for the current cycle'):''}</small>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">
-      ${chip('💰 GMT', f(L.gmt,2))} ${chip('₿ sats', f(L.sats))} ${chip('🧱 '+trLit('blocs','blocks'), f(L.blocs))}
+      ${rewardChips}
       ${chip('🏅 '+trLit('rang','rank'), L.rank==null?'—':L.rank)} ${chip('🤖 '+trLit('solde bot','bot bal.'), f(L.botGmt,2)+' GMT')} ${chip('$GMT', f(L.pxGmt,4))}
     </div>
-    <small class="muted" style="display:block;margin-top:8px;line-height:1.45">${trLit('⚠️ Vérifie ces chiffres contre le jeu une fois. Si un champ est vide ou faux, dis-le moi — j’ajuste le mappage.','⚠️ Check these once against the game. If a field is empty or wrong, tell me — I’ll fix the mapping.')}</small>
+    <small class="muted" style="display:block;margin-top:8px;line-height:1.45">${note}</small>
   </div>`;
 }
 
@@ -2221,13 +2229,17 @@ function appliquerLiveSpy(L){
   if(!L) return;
   const cyc = cleCycle(new Date());
   const le = { cycle: cyc, _auto:true, _at: L.at||null };
-  if(L.gmt!=null)    le.gmt   = L.gmt;
+  if(L.gmt!=null)    le.gmt   = L.gmt;      // récompense DU CYCLE (cumul − baseline), null si pas encore fiable
   if(L.sats!=null)   le.sats  = L.sats;
   if(L.blocs!=null)  le.blocs = L.blocs;
   if(L.pxGmt!=null)  le.pxGmt = L.pxGmt;
   if(L.botGmt!=null) le.botGmt= L.botGmt;
   if(L.rank!=null)   le.rank  = L.rank;
   if(L.leagueId!=null) le.leagueId = L.leagueId;
+  if(L.userRank!=null) le.userRank = L.userRank;
+  if(L.gmtCum!=null)  le.gmtCum  = L.gmtCum;    // cumul depuis le début du clan (info)
+  if(L.satsCum!=null) le.satsCum = L.satsCum;
+  le.baseTrusted = !!L.baseTrusted;             // false = cycle capté en cours de route (récompense du cycle pas encore fiable)
   // N'écrase un etat-live.json manuel que s'il concerne un AUTRE cycle, ou s'il était déjà auto.
   if(!liveEtat || liveEtat._auto || liveEtat.cycle!==cyc) liveEtat = le;
   ecrire("liveAuto", le);
