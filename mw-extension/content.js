@@ -12,7 +12,7 @@
     seen: {}, cyc: {}, nSeen: 0, nowCy: null, roster: null, recipe: null, updated: null
   };
   try { const o = JSON.parse(localStorage.getItem(LS) || 'null'); if (o) S = Object.assign(S, o); } catch (e) {}
-  if (S.sv6 !== 6) { S.agg = {}; S.byMultLg = {}; S.spLg = {}; S.durLg = {}; S.lgMax = {}; S.clanCyc = {}; S.seen = {}; S.cyc = {}; S.nSeen = 0; S.sv6 = 6; try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} }
+  if (S.sv6 !== 7) { S.agg = {}; S.byMultLg = {}; S.spLg = {}; S.durLg = {}; S.lgMax = {}; S.clanCyc = {}; S.seen = {}; S.cyc = {}; S.nSeen = 0; S.sv6 = 7; try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} } // remise à zéro demandée
   const save = () => { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
   const g = (o, ...p) => p.reduce((a, k) => (a == null ? a : a[k]), o);
   const dow = t => { try { const d = new Date(t); const n = (d.getDay() + 6) % 7; return isNaN(n) ? null : n; } catch (e) { return null; } };
