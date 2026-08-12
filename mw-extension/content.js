@@ -114,7 +114,7 @@
     else if (bodyObj) { pk = Object.keys(bodyObj).find(x => /pag/i.test(x)); if (pk && typeof bodyObj[pk] === 'object') setPag('b', bodyObj[pk], pk); else { const pf = Object.keys(bodyObj).find(x => /page|offset|skip|from/i.test(x)); if (pf) { info.pagLoc = 'bflat'; info.pageField = pf; info.limitField = Object.keys(bodyObj).find(x => /limit|take|size/i.test(x)) || null; info.offsetBased = /offset|skip|from/i.test(pf); } } }
     return info;
   }
-  function buildReq(info, lg, cy, off) {
+  function buildReq(info, lg, cy, off, lim) {
     const u = new URL(info.base.toString());
     const body = info.bodyObj ? JSON.parse(JSON.stringify(info.bodyObj)) : null;
     const ALLM = [1, 2, 4, 8, 16, 32, 64, 128, 256];
@@ -122,7 +122,7 @@
     [...u.searchParams.keys()].forEach(k => { if (/mult/i.test(k)) u.searchParams.set(k, JSON.stringify(ALLM)); });
     if (info.cyKey) { if (info.cyLoc === 'q') u.searchParams.set(info.cyKey, cy); else body[info.cyKey] = cy; }
     if (info.lgKey) { if (info.lgLoc === 'q') u.searchParams.set(info.lgKey, lg); else body[info.lgKey] = lg; }
-    const setP = pj => { if (info.pageField) pj[info.pageField] = off; if (info.limitField) pj[info.limitField] = BIG_LIMIT; return pj; };
+    const setP = pj => { if (info.pageField) pj[info.pageField] = off; if (lim && info.limitField) pj[info.limitField] = lim; return pj; };
     if (info.pagLoc === 'q') { let pj = {}; try { pj = JSON.parse(u.searchParams.get(info.pagKey)); } catch (e) {} u.searchParams.set(info.pagKey, JSON.stringify(setP(pj))); }
     else if (info.pagLoc === 'b') { body[info.pagKey] = setP(body[info.pagKey] || {}); }
     else if (info.pagLoc === 'bflat') { if (info.pageField) body[info.pageField] = off; if (info.limitField) body[info.limitField] = BIG_LIMIT; }
@@ -137,20 +137,21 @@
     if (!info) { scanMsg = '⚠️ Requête illisible.'; render(); return; }
     scanning = true; scanStop = false;
     const nowCy = S.nowCy != null ? S.nowCy : (curCycle() || 0);
-    let got = 0;
+    let got = 0, effLimit = BIG_LIMIT;   // grosse limite ; repli auto sur la limite d'origine si le serveur la refuse
     async function fetchCycle(lg, cy, label) {
       let off = 0, guard = 0; const buf = [];
       while (true) {
         if (scanStop) break;
-        const req = buildReq(info, lg, cy, off);
+        const req = buildReq(info, lg, cy, off, effLimit);
         req.opts.headers = freshHeaders(req.opts.headers);
         scanMsg = `${label} · ${got + buf.length} rounds`; render();
         let tot = 0, code = 0;
         try { const res = await oFetch(req.url, req.opts); code = res.status; if (res.ok) { const j = await res.json(); const rounds = extractRounds((j && j.data !== undefined) ? j.data : j); tot = rounds.length; rounds.forEach(r => { if (r && r.winnerClanId != null) buf.push(r); }); } } catch (e) {}
         if (code === 401 || code === 403) throw { auth: code };
+        if (off === 0 && buf.length === 0 && tot === 0 && effLimit) { effLimit = 0; continue; } // grosse limite refusée → repli sur la limite d'origine, on retente
         guard++;
-        if (!info.pageField || tot === 0 || guard > 400) break;   // page vide = fin (fiable quel que soit le max du serveur)
-        off += info.offsetBased ? tot : 1;                        // avance du nb RÉEL de rounds reçus (offset) ou +1 (page)
+        if (!info.pageField || tot === 0 || guard > 1000) break;   // page vide = fin
+        off += info.offsetBased ? tot : 1;                         // avance du nb RÉEL reçu (offset) ou +1 (page)
         await sleep(70);
       }
       return buf;
