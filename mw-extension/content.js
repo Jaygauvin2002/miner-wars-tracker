@@ -221,10 +221,17 @@
       (() => { const L = S.live || {}; const f = (v, d) => v == null ? '—' : (+v).toLocaleString('fr-CA', { maximumFractionDigits: d || 0 });
         return `<div class="scan" style="margin-top:8px"><div class="hd">👤 Toi (live)</div>` +
           `<div class="row2 s">💰 ${f(L.gmt, 2)} GMT · ₿ ${f(L.sats)} sats · 🧱 ${f(L.blocs)} blocs</div>` +
-          `<div class="row2 s">🏅 rang ${L.rank == null ? '—' : L.rank} · 🤖 bot ${f(L.botGmt, 2)} GMT · GMT $${f(L.pxGmt, 4)}</div></div>`; })() +
+          `<div class="row2 s">🏅 rang ${L.rank == null ? '—' : L.rank} · 🤖 bot ${f(L.botGmt, 2)} GMT · GMT $${f(L.pxGmt, 4)}</div>` +
+          `<button id="mwperso" class="btng" style="margin-top:6px;font-size:11px;padding:3px 8px">📋 copier données perso (debug)</button></div>`; })() +
       `<div class="row s" style="margin-top:8px;color:#8fd3a8">📡 Envoi auto vers ton tracker actif — ouvre ta page Miner Wars pour analyser.</div>`;
     const bs = box.querySelector('#mwscan'); if (bs) bs.onclick = () => { const a = +box.querySelector('#lgA').value || 1, b = +box.querySelector('#lgB').value || 40, n = +box.querySelector('#ncy').value || 1; scan(a, b, n); };
     const bt = box.querySelector('#mwstop'); if (bt) bt.onclick = () => { scanStop = true; };
+    const bp = box.querySelector('#mwperso'); if (bp) bp.onclick = () => {
+      const j = JSON.stringify({ total: S.total, pos: S.pos, roster: S.roster, botGmt: S.botGmt, gmtPrice: S.gmtPrice, live: S.live }, null, 2);
+      const done = () => { bp.textContent = '✅ copié — colle dans le chat'; };
+      try { navigator.clipboard.writeText(j).then(done).catch(() => { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }); }
+      catch (e) { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }
+    };
   }
   function makeBox() {
     if (document.getElementById('mw-espion-box')) return;
