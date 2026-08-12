@@ -13,12 +13,43 @@
   };
   try { const o = JSON.parse(localStorage.getItem(LS) || 'null'); if (o) S = Object.assign(S, o); } catch (e) {}
   if (S.sv6 !== 7) { S.agg = {}; S.byMultLg = {}; S.spLg = {}; S.durLg = {}; S.lgMax = {}; S.clanCyc = {}; S.seen = {}; S.cyc = {}; S.nSeen = 0; S.sv6 = 7; try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} } // remise à zéro demandée
-  const save = () => { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
+  const save = () => { try { buildLive(); } catch (e) {} try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
   const g = (o, ...p) => p.reduce((a, k) => (a == null ? a : a[k]), o);
   const dow = t => { try { const d = new Date(t); const n = (d.getDay() + 6) % 7; return isNaN(n) ? null : n; } catch (e) { return null; } };
   const abils = arr => (Array.isArray(arr) ? arr : []).map(a => ({ id: a.nftGameAbilityId || a.abilityId || a.id, count: a.count || 1 })).filter(a => a.id);
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const extractRounds = d => (Array.isArray(d) ? d : ((d && d.array) || []));
+
+  // Cherche en profondeur le 1er nombre dont la CLÉ matche re. big=true : divise par 1e18 les valeurs "wei" (>1e12).
+  function deepNum(obj, re, big) {
+    let found = null;
+    (function walk(o, depth) {
+      if (o == null || found != null || depth > 6) return;
+      if (typeof o === 'object') {
+        for (const k in o) {
+          if (found != null) return;
+          const v = o[k];
+          const isNum = typeof v === 'number' || (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v));
+          if (isNum && re.test(k)) { let n = +v; if (big && Math.abs(n) > 1e12) n = n / 1e18; if (!isNaN(n)) { found = n; return; } }
+          else if (v && typeof v === 'object') walk(v, depth + 1);
+        }
+      }
+    })(obj, 0);
+    return found;
+  }
+  // Emballe l'état PERSO du joueur pour le tracker (récompenses du cycle, rang, solde bot, prix GMT).
+  function buildLive() {
+    const L = { at: S.updated || null, cycleId: S.nowCy != null ? S.nowCy : null };
+    if (S.gmtPrice != null) { const p = +S.gmtPrice; if (!isNaN(p)) L.pxGmt = p; }
+    if (S.botGmt != null) { const b = +S.botGmt; if (!isNaN(b)) L.botGmt = b; }
+    L.leagueId = g(S.pos, 'leagueId'); if (L.leagueId == null && S.roster) L.leagueId = S.roster.lg;
+    L.rank = deepNum(S.pos, /rank|position|place|rating/i);
+    // Récompenses du cycle depuis get-total-reward-by-user (best-effort : à vérifier via l'affichage).
+    L.gmt = deepNum(S.total, /gmt|token/i, true);
+    L.sats = deepNum(S.total, /sat|btc|bitcoin/i);
+    L.blocs = deepNum(S.total, /win.*count|block|round.*count|wins/i);
+    S.live = L;
+  }
 
   function aggRound(r) {
     if (!r || r.id == null || r.winnerClanId == null) return 0;
@@ -187,6 +218,10 @@
       `<div class="row2">ligues <input id="lgA" type="number" value="1"> à <input id="lgB" type="number" value="40"> · <input id="ncy" type="number" value="6"> cycles</div>` +
       (scanning ? `<button id="mwstop" class="btnr">⏹ Stop</button> <span class="s">${scanMsg}</span>` : `<button id="mwscan" class="btng">▶ Scanner</button> <span class="s">${scanMsg}</span>`) +
       `</div>` +
+      (() => { const L = S.live || {}; const f = (v, d) => v == null ? '—' : (+v).toLocaleString('fr-CA', { maximumFractionDigits: d || 0 });
+        return `<div class="scan" style="margin-top:8px"><div class="hd">👤 Toi (live)</div>` +
+          `<div class="row2 s">💰 ${f(L.gmt, 2)} GMT · ₿ ${f(L.sats)} sats · 🧱 ${f(L.blocs)} blocs</div>` +
+          `<div class="row2 s">🏅 rang ${L.rank == null ? '—' : L.rank} · 🤖 bot ${f(L.botGmt, 2)} GMT · GMT $${f(L.pxGmt, 4)}</div></div>`; })() +
       `<div class="row s" style="margin-top:8px;color:#8fd3a8">📡 Envoi auto vers ton tracker actif — ouvre ta page Miner Wars pour analyser.</div>`;
     const bs = box.querySelector('#mwscan'); if (bs) bs.onclick = () => { const a = +box.querySelector('#lgA').value || 1, b = +box.querySelector('#lgB').value || 40, n = +box.querySelector('#ncy').value || 1; scan(a, b, n); };
     const bt = box.querySelector('#mwstop'); if (bt) bt.onclick = () => { scanStop = true; };

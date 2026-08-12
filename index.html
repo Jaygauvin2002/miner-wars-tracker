@@ -1172,9 +1172,9 @@ function statsCycle(debut){
   const _roundTHjour = (()=>{ const r = jours.filter(j=> j.roundTH!=null); return r.length ? r.reduce((a,b)=> new Date(b.date)>=new Date(a.date)?b:a).roundTH : null; })();
   // On garde les valeurs telles quelles (null = champ non renseigné) pour ne pas écraser une estimation par 0.
   let etat = etatJ ? { blocs: etatJ.jeuBlocs, btcSats: etatJ.jeuSats, gmt: etatJ.jeuGmt, elec: etatJ.jeuElec, service: etatJ.jeuService, roundTH: _roundTHjour, prixBtcUsd: etatJ.prixBtcUsd||null, prixGmtUsd: etatJ.prixGmtUsd||null } : (_roundTHjour!=null ? { roundTH:_roundTHjour } : null);
-  if(live){ // les totaux poussés par Claude priment ; élec/service restent ceux saisis dans la Journée
-    etat = { blocs: live.blocs!=null?live.blocs:null, btcSats: live.sats!=null?live.sats:null, gmt: live.gmt!=null?live.gmt:null,
-      elec: etatJ?etatJ.jeuElec:null, service: etatJ?etatJ.jeuService:null, roundTH: (live.roundTH!=null?live.roundTH:_roundTHjour), prixBtcUsd: live.pxBtc||null, prixGmtUsd: live.pxGmt||null };
+  if(live){ // les totaux live priment ; un champ live absent RETOMBE sur la saisie manuelle (jamais d'écrasement par null)
+    etat = { blocs: live.blocs!=null?live.blocs:(etatJ?etatJ.jeuBlocs:null), btcSats: live.sats!=null?live.sats:(etatJ?etatJ.jeuSats:null), gmt: live.gmt!=null?live.gmt:(etatJ?etatJ.jeuGmt:null),
+      elec: etatJ?etatJ.jeuElec:null, service: etatJ?etatJ.jeuService:null, roundTH: (live.roundTH!=null?live.roundTH:_roundTHjour), prixBtcUsd: live.pxBtc||(etatJ?etatJ.prixBtcUsd:null)||null, prixGmtUsd: live.pxGmt||(etatJ?etatJ.prixGmtUsd:null)||null };
     if(live.spellsGmt!=null) depGmt = live.spellsGmt;
   }
 
@@ -1529,6 +1529,7 @@ function renderDashboard(){
   let html = "";
   if(!prix){ html += `<div class="warn">Prix indisponibles (hors-ligne). Les conversions USD sont à zéro jusqu'au retour du réseau.</div>`; }
 
+  html += renderLiveAuto(debut);                                                           // LIVE auto (extension)
   html += renderVerdict();                                                                 // HERO — le verdict
   html += renderStripCycle(s, prev);                                                       // CE CYCLE
   html += renderBreakeven();                                                               // SEUIL DE RENTABILITÉ
@@ -1539,6 +1540,27 @@ function renderDashboard(){
 
   c.innerHTML = html;
   if(LANG==='en') traduireArbre(c);
+}
+
+/* Bannière LIVE auto : ce que l'extension capte pour le cycle courant (à vérifier d'un coup d'œil). */
+function renderLiveAuto(debut){
+  const L = (liveEtat && liveEtat._auto && liveEtat.cycle===cleCycle(debut)) ? liveEtat : null;
+  if(!L) return "";
+  const f = (v,d)=> v==null ? '—' : (+v).toLocaleString(LANG==='en'?'en-CA':'fr-CA',{maximumFractionDigits:d||0});
+  const when = L._at ? new Date(L._at).toLocaleString(LANG==='en'?'en-CA':'fr-CA',{hour:'2-digit',minute:'2-digit'}) : '';
+  const chip = (lab,val)=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;background:rgba(52,199,89,.12);color:var(--green);font-size:.76rem;font-weight:700;white-space:nowrap">${lab} ${val}</span>`;
+  return `<div class="card" data-noi18n style="border-color:rgba(52,199,89,.35)">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <b style="font-size:.82rem">🟢 ${trLit('Live — capté par l’extension','Live — captured by the extension')}</b>
+      <small class="muted">${when?('· '+when):''}</small>
+      <small class="muted" style="margin-left:auto">${trLit('remplace la saisie manuelle du cycle courant','overrides manual entry for the current cycle')}</small>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">
+      ${chip('💰 GMT', f(L.gmt,2))} ${chip('₿ sats', f(L.sats))} ${chip('🧱 '+trLit('blocs','blocks'), f(L.blocs))}
+      ${chip('🏅 '+trLit('rang','rank'), L.rank==null?'—':L.rank)} ${chip('🤖 '+trLit('solde bot','bot bal.'), f(L.botGmt,2)+' GMT')} ${chip('$GMT', f(L.pxGmt,4))}
+    </div>
+    <small class="muted" style="display:block;margin-top:8px;line-height:1.45">${trLit('⚠️ Vérifie ces chiffres contre le jeu une fois. Si un champ est vide ou faux, dis-le moi — j’ajuste le mappage.','⚠️ Check these once against the game. If a field is empty or wrong, tell me — I’ll fix the mapping.')}</small>
+  </div>`;
 }
 
 /* Strip "CE CYCLE" : 4 tuiles primaires + chip streak. Budget en barre de progression. */
@@ -2190,8 +2212,26 @@ function autoImportSpy(){
     __mwLastRaw=raw;
     ecrire("clans", computeSpy(parsed));
     ecrire("clansAutoAt", Date.now());
+    appliquerLiveSpy(parsed.live);
     if(typeof ongletCourant==='function' && ongletCourant()==='clans') remplirClans();
   }catch(e){}
+}
+// Branche l'état PERSO capté (récompenses/rang/solde bot/prix) sur le cycle COURANT du tracker.
+function appliquerLiveSpy(L){
+  if(!L) return;
+  const cyc = cleCycle(new Date());
+  const le = { cycle: cyc, _auto:true, _at: L.at||null };
+  if(L.gmt!=null)    le.gmt   = L.gmt;
+  if(L.sats!=null)   le.sats  = L.sats;
+  if(L.blocs!=null)  le.blocs = L.blocs;
+  if(L.pxGmt!=null)  le.pxGmt = L.pxGmt;
+  if(L.botGmt!=null) le.botGmt= L.botGmt;
+  if(L.rank!=null)   le.rank  = L.rank;
+  if(L.leagueId!=null) le.leagueId = L.leagueId;
+  // N'écrase un etat-live.json manuel que s'il concerne un AUTRE cycle, ou s'il était déjà auto.
+  if(!liveEtat || liveEtat._auto || liveEtat.cycle!==cyc) liveEtat = le;
+  ecrire("liveAuto", le);
+  if(typeof renderDashboard==='function' && !document.getElementById("tab-dashboard").classList.contains("hidden")) renderDashboard();
 }
 window.addEventListener('mw-spy-updated', autoImportSpy);   // poussé par l'extension
 setTimeout(autoImportSpy, 800);                              // au chargement
