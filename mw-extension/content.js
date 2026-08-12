@@ -3,6 +3,7 @@
 (function () {
   'use strict';
   const LS = 'mw_spy_v6';
+  const BIG_LIMIT = 100;   // rounds par requête (au lieu de 10) → ~8× moins de requêtes = beaucoup plus rapide
   try { localStorage.removeItem('mw_spy_v5'); } catch (e) {}
   let S = {
     clan: null, botGmt: null, botCfg: null, total: null, pos: null, gmtPrice: null,
@@ -107,27 +108,27 @@
     const info = { method: (S.recipe.method || 'GET').toUpperCase(), bodyObj, base: u, cyLoc: null, cyKey: null, lgLoc: null, lgKey: null, pagLoc: null, pagKey: null, pageField: null, limit: 10, step: 1 };
     let k = findK(q, /cycle/i, cyNow); if (k) { info.cyLoc = 'q'; info.cyKey = k; } else if (bodyObj) { k = findK(bodyObj, /cycle/i, cyNow); if (k) { info.cyLoc = 'b'; info.cyKey = k; } }
     k = findK(q, /league|^lg$/i, lgNow); if (k) { info.lgLoc = 'q'; info.lgKey = k; } else if (bodyObj) { k = findK(bodyObj, /league|^lg$/i, lgNow); if (k) { info.lgLoc = 'b'; info.lgKey = k; } }
-    const setPag = (loc, raw, key) => { info.pagLoc = loc; info.pagKey = key; let pj = {}; try { pj = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {} info.pageField = Object.keys(pj).find(x => /page|offset|skip|from|cursor/i.test(x)) || null; info.limit = pj.limit || pj.take || pj.size || pj.count || 10; info.step = /offset|skip|from/i.test(info.pageField || '') ? info.limit : 1; };
+    const setPag = (loc, raw, key) => { info.pagLoc = loc; info.pagKey = key; let pj = {}; try { pj = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch (e) {} info.pageField = Object.keys(pj).find(x => /page|offset|skip|from|cursor/i.test(x)) || null; info.limitField = Object.keys(pj).find(x => /^limit$|take|size|per/i.test(x)) || 'limit'; info.offsetBased = /offset|skip|from/i.test(info.pageField || ''); };
     let pk = Object.keys(q).find(x => /pag/i.test(x));
     if (pk) setPag('q', q[pk], pk);
-    else if (bodyObj) { pk = Object.keys(bodyObj).find(x => /pag/i.test(x)); if (pk && typeof bodyObj[pk] === 'object') setPag('b', bodyObj[pk], pk); else { const pf = Object.keys(bodyObj).find(x => /page|offset|skip|from/i.test(x)); if (pf) { info.pagLoc = 'bflat'; info.pageField = pf; const lf = Object.keys(bodyObj).find(x => /limit|take|size|count/i.test(x)); if (lf) info.limit = bodyObj[lf] || 10; info.step = /offset|skip|from/i.test(pf) ? info.limit : 1; } } }
+    else if (bodyObj) { pk = Object.keys(bodyObj).find(x => /pag/i.test(x)); if (pk && typeof bodyObj[pk] === 'object') setPag('b', bodyObj[pk], pk); else { const pf = Object.keys(bodyObj).find(x => /page|offset|skip|from/i.test(x)); if (pf) { info.pagLoc = 'bflat'; info.pageField = pf; info.limitField = Object.keys(bodyObj).find(x => /limit|take|size/i.test(x)) || null; info.offsetBased = /offset|skip|from/i.test(pf); } } }
     return info;
   }
-  function buildReq(info, lg, cy, pageIdx) {
+  function buildReq(info, lg, cy, off) {
     const u = new URL(info.base.toString());
     const body = info.bodyObj ? JSON.parse(JSON.stringify(info.bodyObj)) : null;
     const ALLM = [1, 2, 4, 8, 16, 32, 64, 128, 256];
     if (body) Object.keys(body).forEach(k => { if (/mult/i.test(k) && Array.isArray(body[k])) body[k] = ALLM; });
     [...u.searchParams.keys()].forEach(k => { if (/mult/i.test(k)) u.searchParams.set(k, JSON.stringify(ALLM)); });
-    const pageVal = pageIdx * info.step;
     if (info.cyKey) { if (info.cyLoc === 'q') u.searchParams.set(info.cyKey, cy); else body[info.cyKey] = cy; }
     if (info.lgKey) { if (info.lgLoc === 'q') u.searchParams.set(info.lgKey, lg); else body[info.lgKey] = lg; }
-    if (info.pagLoc === 'q') { let pj = {}; try { pj = JSON.parse(u.searchParams.get(info.pagKey)); } catch (e) {} if (info.pageField) pj[info.pageField] = pageVal; u.searchParams.set(info.pagKey, JSON.stringify(pj)); }
-    else if (info.pagLoc === 'b') { let pj = body[info.pagKey] || {}; if (info.pageField) pj[info.pageField] = pageVal; body[info.pagKey] = pj; }
-    else if (info.pagLoc === 'bflat' && info.pageField) { body[info.pageField] = pageVal; }
+    const setP = pj => { if (info.pageField) pj[info.pageField] = off; if (info.limitField) pj[info.limitField] = BIG_LIMIT; return pj; };
+    if (info.pagLoc === 'q') { let pj = {}; try { pj = JSON.parse(u.searchParams.get(info.pagKey)); } catch (e) {} u.searchParams.set(info.pagKey, JSON.stringify(setP(pj))); }
+    else if (info.pagLoc === 'b') { body[info.pagKey] = setP(body[info.pagKey] || {}); }
+    else if (info.pagLoc === 'bflat') { if (info.pageField) body[info.pageField] = off; if (info.limitField) body[info.limitField] = BIG_LIMIT; }
     const opts = { method: info.method, headers: S.recipe.headers || {}, credentials: 'include' };
     if (body && info.method !== 'GET') opts.body = JSON.stringify(body);
-    return { url: u.toString(), opts, limit: info.limit };
+    return { url: u.toString(), opts };
   }
   async function scan(lgFrom, lgTo, nCycles) {
     if (scanning) return;
@@ -138,19 +139,19 @@
     const nowCy = S.nowCy != null ? S.nowCy : (curCycle() || 0);
     let got = 0;
     async function fetchCycle(lg, cy, label) {
-      let page = 0; const buf = [];
+      let off = 0, guard = 0; const buf = [];
       while (true) {
         if (scanStop) break;
-        const req = buildReq(info, lg, cy, page);
+        const req = buildReq(info, lg, cy, off);
         req.opts.headers = freshHeaders(req.opts.headers);
-        scanMsg = `${label} · p${page + 1} · ${got} rounds`; render();
-        let n = 0, code = 0;
-        try { const res = await oFetch(req.url, req.opts); code = res.status; if (res.ok) { const j = await res.json(); extractRounds((j && j.data !== undefined) ? j.data : j).forEach(r => { if (r && r.winnerClanId != null) { n++; buf.push(r); } }); } } catch (e) {}
+        scanMsg = `${label} · ${got + buf.length} rounds`; render();
+        let tot = 0, code = 0;
+        try { const res = await oFetch(req.url, req.opts); code = res.status; if (res.ok) { const j = await res.json(); const rounds = extractRounds((j && j.data !== undefined) ? j.data : j); tot = rounds.length; rounds.forEach(r => { if (r && r.winnerClanId != null) buf.push(r); }); } } catch (e) {}
         if (code === 401 || code === 403) throw { auth: code };
-        page++;
-        if (!info.pageField) break;
-        if (n < req.limit || page >= 200) break;
-        await sleep(230);
+        guard++;
+        if (!info.pageField || tot === 0 || guard > 400) break;   // page vide = fin (fiable quel que soit le max du serveur)
+        off += info.offsetBased ? tot : 1;                        // avance du nb RÉEL de rounds reçus (offset) ou +1 (page)
+        await sleep(70);
       }
       return buf;
     }
@@ -159,12 +160,13 @@
         if (scanStop) break;
         for (let ci = 0; ci < nCycles; ci++) {
           if (scanStop) break;
+          if ((S.lgMax[lg] || 0) > 32) break;   // ligue déjà connue NON-Dune → on saute ses autres cycles
           const cy = nowCy - 1 - ci; if (cy <= 0) break;
           const key = cy + ':' + lg;
           if (S.seen[key]) continue;
           const buf = await fetchCycle(lg, cy, `Ligue ${lg} cycle ${cy}`);
           if (buf.length) { buf.forEach(aggRound); got += buf.length; S.seen[key] = 1; save(); }
-          await sleep(150);
+          await sleep(40);
         }
       }
     } catch (e) { scanning = false; scanMsg = `🔒 Jeton expiré. Ouvre l'Historique 1× puis relance.`; render(); return; }

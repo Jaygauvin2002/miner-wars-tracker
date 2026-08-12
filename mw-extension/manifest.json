@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Miner Wars — Espion",
-  "version": "7.0",
+  "version": "7.1",
   "description": "Capteur Miner Wars (GoMining) : capte les données du jeu et les envoie automatiquement vers ta page tracker pour analyse.",
   "permissions": ["storage"],
   "content_scripts": [
