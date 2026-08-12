@@ -38,16 +38,20 @@
     return found;
   }
   // Emballe l'état PERSO du joueur pour le tracker (récompenses du cycle, rang, solde bot, prix GMT).
+  // Champs API confirmés (2026-08-12) : get-total-reward-by-user = {depositBtc (BTC), depositGmtFund (pool),
+  // depositGmtFundOwner (part du joueur)} ; get-user-positions-data = {leagueId, clanRank, userRank}.
   function buildLive() {
     const L = { at: S.updated || null, cycleId: S.nowCy != null ? S.nowCy : null };
     if (S.gmtPrice != null) { const p = +S.gmtPrice; if (!isNaN(p)) L.pxGmt = p; }
     if (S.botGmt != null) { const b = +S.botGmt; if (!isNaN(b)) L.botGmt = b; }
     L.leagueId = g(S.pos, 'leagueId'); if (L.leagueId == null && S.roster) L.leagueId = S.roster.lg;
-    L.rank = deepNum(S.pos, /rank|position|place|rating/i);
-    // Récompenses du cycle depuis get-total-reward-by-user (best-effort : à vérifier via l'affichage).
-    L.gmt = deepNum(S.total, /gmt|token/i, true);
-    L.sats = deepNum(S.total, /sat|btc|bitcoin/i);
-    L.blocs = deepNum(S.total, /win.*count|block|round.*count|wins/i);
+    L.rank = g(S.pos, 'clanRank');        // rang du clan dans la ligue (user solo → son rang)
+    L.userRank = g(S.pos, 'userRank');
+    // Récompenses du cycle : depositBtc en unité BTC → sats (×1e8) ; GMT = part du joueur (…Owner), pas le fonds.
+    const btc = g(S.total, 'depositBtc'); L.sats = btc != null ? Math.round(+btc * 1e8) : null;
+    const own = g(S.total, 'depositGmtFundOwner'); L.gmt = own != null ? +own : null;
+    L.gmtFund = g(S.total, 'depositGmtFund');   // fonds GMT total de la ligue (info, pas ta récompense)
+    L.blocs = null;                             // nb de blocs non exposé par ces endpoints → reste manuel
     S.live = L;
   }
 
