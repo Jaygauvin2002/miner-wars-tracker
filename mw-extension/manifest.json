@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Miner Wars — Espion",
+  "version": "6.6",
+  "description": "Espion + scanner automatique pour Miner Wars (GoMining) : profils de clans, contestation, durées, stratégie.",
+  "content_scripts": [
+    {
+      "matches": ["https://app.gomining.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
+}

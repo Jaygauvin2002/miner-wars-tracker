@@ -537,6 +537,81 @@
       <button class="btn ghost" style="color:var(--red)" onclick="effacerTout()">Tout effacer</button>
     </div>
   </section>
+
+  <!-- ======================= ONGLET : DOSSIER DES CLANS (espion) ======================= -->
+  <section id="tab-clans" class="hidden">
+    <style>
+      #tab-clans .spydrop{border:1.5px dashed var(--border);border-radius:12px;padding:16px;text-align:center;color:var(--faint);margin-top:8px;font-size:.85rem}
+      #tab-clans .spydrop.over{border-color:var(--accent);color:var(--accent);background:var(--surface2)}
+      #tab-clans .chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+      #tab-clans .chip{border:1px solid var(--border);background:var(--surface2);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:.8rem;cursor:pointer;font-weight:600}
+      #tab-clans .chip[aria-pressed="true"]{background:var(--accent);color:#1a1400;border-color:var(--accent)}
+      #tab-clans .spytablewrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;margin-top:8px}
+      #tab-clans table.dossier{width:100%;border-collapse:collapse;font-size:.82rem}
+      #tab-clans table.dossier th,#tab-clans table.dossier td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+      #tab-clans table.dossier th{position:sticky;top:0;background:var(--surface2);font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);cursor:pointer;user-select:none}
+      #tab-clans table.dossier th.num,#tab-clans table.dossier td.num{text-align:right;font-variant-numeric:tabular-nums}
+      #tab-clans table.dossier tbody tr:hover{background:var(--surface3)}
+      #tab-clans .nm{font-weight:650;white-space:normal;min-width:140px}
+      #tab-clans .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;font-weight:700}
+      #tab-clans .b-power{background:rgba(91,155,242,.16);color:var(--accent2)}
+      #tab-clans .b-bully{background:rgba(240,115,111,.16);color:var(--red)}
+      #tab-clans .b-mix{background:rgba(236,182,63,.16);color:var(--accent)}
+      #tab-clans .b-low{background:var(--surface3);color:var(--faint)}
+      #tab-clans .tag{display:inline-block;background:var(--surface3);color:var(--text);border-radius:5px;padding:1px 6px;font-size:.72rem;margin:1px}
+      #tab-clans .sub{opacity:.75;font-size:.8rem;line-height:1.5;margin-top:2px}
+      #tab-clans .strat-block{border-left:3px solid var(--accent);padding-left:12px;margin:12px 0}
+      #tab-clans .kv{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+      #tab-clans .kv .cell{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-size:.8rem}
+      #tab-clans .reco{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-top:10px;line-height:1.55}
+      #tab-clans .reco b{color:var(--accent)}
+      #tab-clans table.mtable{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:6px}
+      #tab-clans table.mtable td{padding:3px 8px;border-bottom:1px solid var(--border)}
+      #tab-clans table.otable{width:100%;border-collapse:collapse;font-size:.8rem}
+      #tab-clans table.otable th,#tab-clans table.otable td{padding:5px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+      #tab-clans table.otable th{color:var(--muted);font-size:.66rem;text-transform:uppercase;letter-spacing:.04em}
+      #tab-clans table.otable td.num{text-align:right;font-variant-numeric:tabular-nums}
+      #tab-clans .hm{display:inline-flex;gap:2px}
+      #tab-clans .hm i{width:13px;height:13px;border-radius:3px;display:inline-block;background:rgba(240,115,111,.30)}
+      #tab-clans .hm i.on{background:var(--green)}
+    </style>
+    <div class="card">
+      <h2>Espion — importer</h2>
+      <p class="muted" style="margin-top:0;line-height:1.5">Sur GoMining, clique <b>⬇︎</b> dans le panneau 🕵️ <b>MW Espion</b> pour télécharger <b>mw_spy.json</b>, puis dépose-le ici. Le tracker analyse tous les clans et te donne la stratégie de la semaine.</p>
+      <label>Importer mw_spy.json</label>
+      <input type="file" id="spyFile" accept="application/json" onchange="importSpy(event)" />
+      <div id="spyDrop" class="spydrop" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="spyDropHandler(event)">ou glisse le fichier ici</div>
+      <small class="muted" id="spyInfo" style="display:block;margin-top:8px"></small>
+    </div>
+    <div id="spyStrategy"></div>
+    <div class="card" id="spyFicheCard" style="display:none">
+      <h2>Fiche clan — recherche</h2>
+      <input type="text" id="spyFq" placeholder="🔎 Tape un nom de clan…" oninput="renderClanFiche()" autocomplete="off" />
+      <div id="spyFiche" style="margin-top:8px"></div>
+    </div>
+    <div class="card" id="spyDossierCard" style="display:none">
+      <h2>Dossier des clans</h2>
+      <input type="text" id="spyQ" placeholder="🔎 Cherche un clan par nom…" oninput="renderSpyTable()" autocomplete="off" />
+      <div class="chips" id="spyChips">
+        <button class="chip" data-k="all" aria-pressed="true" onclick="spyFilter('all',this)">Tous</button>
+        <button class="chip" data-k="power" aria-pressed="false" onclick="spyFilter('power',this)">🔨 Puissance</button>
+        <button class="chip" data-k="bully" aria-pressed="false" onclick="spyFilter('bully',this)">🎯 Bullies</button>
+        <button class="chip" data-k="mix" aria-pressed="false" onclick="spyFilter('mix',this)">⚖️ Opportunistes</button>
+        <button class="chip" data-k="low" aria-pressed="false" onclick="spyFilter('low',this)">· Peu de données</button>
+      </div>
+      <div id="spyCount" class="muted" style="font-size:.8rem;margin:4px 0"></div>
+      <div class="spytablewrap"><table class="dossier"><thead><tr>
+        <th onclick="spySort('nm')">Clan</th>
+        <th class="num" onclick="spySort('w')">Vict.</th>
+        <th class="num" onclick="spySort('pct')">Boost %</th>
+        <th onclick="spySort('m')">Multiplicateurs</th>
+        <th onclick="spySort('d')">Jours</th>
+        <th onclick="spySort('sp')">Spells</th>
+        <th class="num" onclick="spySort('lg')">Ligues</th>
+        <th onclick="spySort('kl')">Type</th>
+      </tr></thead><tbody id="spyTbody"></tbody></table></div>
+    </div>
+  </section>
 </div>
 
 <!-- ======================= BARRE D'ONGLETS ======================= -->
@@ -547,6 +622,7 @@
   <button data-tab="historique" onclick="switchTab('historique')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Historique</button>
   <button data-tab="plan" onclick="switchTab('plan')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>Plan</button>
   <button data-tab="reglages" onclick="switchTab('reglages')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="2" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="22" y2="16"/></svg>Réglages</button>
+  <button data-tab="clans" onclick="switchTab('clans')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>Clans</button>
 </nav>
 
 <!-- ======================= MODALE (formulaires) ======================= -->
@@ -788,7 +864,7 @@ function traduireArbre(root){
   });
 }
 function ongletCourant(){
-  const tabs=["saisie","dashboard","graphiques","historique","plan","reglages"];
+  const tabs=["saisie","dashboard","graphiques","historique","plan","reglages","clans"];
   return tabs.find(id=>{ const el=document.getElementById("tab-"+id); return el && !el.classList.contains("hidden"); }) || "saisie";
 }
 function appliquerLangue(){
@@ -806,6 +882,7 @@ function appliquerLangue(){
   else if(cur==="graphiques") renderGraphiques();
   else if(cur==="historique") renderHistorique();
   else if(cur==="reglages") remplirConfig();
+  else if(cur==="clans") remplirClans();
   else renderRappelService();
   afficherPrix();
   traduireArbre(document.body);
@@ -813,16 +890,17 @@ function appliquerLangue(){
 function basculerLangue(){ LANG = (LANG==='en') ? 'fr' : 'en'; ecrire("lang", LANG); appliquerLangue(); }
 
 function switchTab(nom){
-  ["saisie","dashboard","graphiques","historique","plan","reglages"].forEach(t=>{
+  ["saisie","dashboard","graphiques","historique","plan","reglages","clans"].forEach(t=>{
     document.getElementById("tab-"+t).classList.toggle("hidden", t!==nom);
   });
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b.dataset.tab===nom));
-  const titres={saisie:"Saisie rapide",dashboard:"Tableau de bord",graphiques:"Graphiques",historique:"Historique",plan:"Plan de jeu",reglages:"Réglages"};
+  const titres={saisie:"Saisie rapide",dashboard:"Tableau de bord",graphiques:"Graphiques",historique:"Historique",plan:"Plan de jeu",reglages:"Réglages",clans:"Dossier des clans"};
   const pt=document.getElementById("pageTitle"); if(pt) pt.textContent=titres[nom]||"";
   if(nom==="dashboard") renderDashboard();
   if(nom==="graphiques") renderGraphiques();
   if(nom==="historique") renderHistorique();
   if(nom==="reglages") remplirConfig();
+  if(nom==="clans") remplirClans();
   if(nom==="saisie") renderRappelService();
   if(LANG==='en'){ if(pt) pt.textContent = trFr(pt.textContent); traduireArbre(document.getElementById("tab-"+nom)); }
   window.scrollTo(0,0);
@@ -1955,6 +2033,238 @@ function sauverConfig(){
 }
 
 /* ==========================================================================
+   DOSSIER DES CLANS (espion) — importe mw_spy.json, analyse, stratégie
+   Domaine séparé (GoMining) → on ne peut pas lire l'espion directement :
+   le pont est le fichier exporté. On stocke une version COMPACTE (profils),
+   pas les 20 000 rounds bruts (localStorage ~5 Mo).
+   ========================================================================== */
+const SPY_WD=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
+let spyFilterKey='all', spySortKey='w', spySortDir=-1;
+function spyDow(t){ try{ const d=new Date(t); const n=(d.getDay()+6)%7; return isNaN(n)?null:n; }catch(e){ return null; } } // 0=Lun
+
+function computeSpy(raw){
+  const names=raw.clanNames||{};
+  const topk=(o,n)=>Object.keys(o).sort((a,b)=>o[b]-o[a]).slice(0,n);
+  const roster=raw.roster||null;
+  const myId=(raw.clan||{}).id||null;
+
+  // ---- FORMAT v6 AGRÉGÉ (raw.agg) : mémoire illimitée, déjà cumulée par clan ----
+  if(raw.agg){
+    // v6.5 : classement du tier par ligue (max mult ≤32 = Dune). Filtre le non-Dune (Eclipse/Horizon/Odyssey).
+    const lgMax=raw.lgMax||null;
+    const isDune=lg=> !lgMax ? true : ((lgMax[lg]||0)<=32);
+    const clanDune=a=> !lgMax ? true : Object.keys(a.lg||{}).some(lg=>isDune(lg));
+    // contestation & spells Dune-wide, reconstruits depuis le détail par ligue si dispo (v6.5), sinon anciens champs
+    let byMultAll=raw.byMultAll||{}, spByMultAll=raw.spByMultAll||{};
+    if(raw.byMultLg){ byMultAll={}; Object.keys(raw.byMultLg).forEach(lg=>{ if(!isDune(lg))return; const o=raw.byMultLg[lg]; Object.keys(o).forEach(m=>{ const t=byMultAll[m]||(byMultAll[m]=[0,0]); t[0]+=o[m][0]; t[1]+=o[m][1]; }); }); }
+    if(raw.spLg){ spByMultAll={}; Object.keys(raw.spLg).forEach(lg=>{ if(!isDune(lg))return; const o=raw.spLg[lg]; Object.keys(o).forEach(m=>{ const t=spByMultAll[m]||(spByMultAll[m]={}); Object.keys(o[m]).forEach(nm=>{ t[nm]=(t[nm]||0)+o[m][nm]; }); }); }); }
+    const clans=Object.keys(raw.agg).filter(c=>clanDune(raw.agg[c])).map(c=>{
+      const a=raw.agg[c]||{}; const w=a.w||0, ev=a.ev||0, pct=w?Math.round(100*ev/w):0;
+      let kl; if(w>=5&&pct<15)kl='power'; else if(w>=4&&pct>=60)kl='bully'; else if(w>=4)kl='mix'; else kl='low';
+      const cm=a.cm||{}, m=a.m||{};
+      const cast=Object.keys(cm).map(Number).sort((x,y)=>(m[y]||0)-(m[x]||0)).slice(0,4).map(mu=>{const sp=cm[mu]||{};const top=Object.keys(sp).sort((x,y)=>sp[y]-sp[x])[0];const den=m[mu]||0;const avg=(top&&den)?Math.round(sp[top]/den*10)/10:0;return {m:mu,sp:top||'—',avg};});
+      const d7=(a.d&&a.d.length===7)?a.d.slice():[0,0,0,0,0,0,0];
+      return {id:+c, nm:names[c]||('Clan '+c), w, ev, pct,
+        m:topk(m,3).map(x=>'x'+x),
+        d:d7.map((v,i)=>[v,i]).sort((x,y)=>y[0]-x[0]).slice(0,2).filter(x=>x[0]>0).map(x=>SPY_WD[x[1]]),
+        d7, sp:topk(a.sp||{},2), cast,
+        lg:Object.keys(a.lg||{}).map(Number).sort((x,y)=>x-y),
+        hist:(raw.clanCyc&&raw.clanCyc[c])||{},   // { cycle: division } — historique par cycle
+        th:(roster&&roster.clans&&roster.clans[c]!=null)?roster.clans[c]:null, kl};
+    });
+    clans.sort((a,b)=>(b.w-a.w)||(b.ev-a.ev));
+    const leagues=[...new Set(clans.flatMap(x=>x.lg))].sort((a,b)=>a-b);
+    const nDune=Object.keys(byMultAll).reduce((s,m)=>s+byMultAll[m][0],0)||raw.nSeen||0;
+    return { meta:{v:3, clans:clans.length, rounds:nDune, leagues, cycles:Object.keys(raw.cyc||{}).map(Number).sort((a,b)=>a-b), importedAt:new Date().toISOString()},
+             clans, roster, byMultAll, spByMultAll, myId };
+  }
+
+  // ---- ANCIEN FORMAT (raw.rounds bruts) : on recalcule + on agrège Dune-wide ----
+  const abil=raw.abil||{}, rounds=Object.values(raw.rounds||{});
+  const an=i=> ((abil[i]||'?')+'').replace(' Boost','');
+  const norm=r=>{
+    if(Array.isArray(r)) return {cy:r[0], lg:r[1], m:r[2], dw:r[3], wc:r[4], sp:(r[5]||[])};
+    const dw=(r.dw!=null)?r.dw:spyDow(r.t);
+    const sp=(r.wb||[]).map((id,i)=>[ an(id), (r.wbc&&r.wbc[i])||1 ]);
+    return {cy:r.cy, lg:r.lg, m:r.m, dw, wc:r.wc, sp};
+  };
+  const P={}; const get=id=>(P[id]=P[id]||{ev:0,wins:0,m:{},d:{},sp:{},lg:{},cm:{},cmn:{}});
+  const cyset={}, byMultAll={}, spByMultAll={};
+  rounds.forEach(rr=>{
+    const r=norm(rr); if(r.wc==null) return;
+    const p=get(r.wc); p.wins++;
+    if(r.lg!=null) p.lg[r.lg]=1;
+    if(r.cy!=null) cyset[r.cy]=1;
+    const bm=byMultAll[r.m]||(byMultAll[r.m]=[0,0]); bm[0]++;
+    if(r.sp&&r.sp.length){
+      p.ev++; p.m[r.m]=(p.m[r.m]||0)+1;
+      if(r.dw!=null) p.d[r.dw]=(p.d[r.dw]||0)+1;
+      p.cm[r.m]=p.cm[r.m]||{}; p.cmn[r.m]=(p.cmn[r.m]||0)+1;
+      const sm=spByMultAll[r.m]||(spByMultAll[r.m]={});
+      r.sp.forEach(a=>{ const n=a[0], cnt=a[1]||1; p.sp[n]=(p.sp[n]||0)+1; p.cm[r.m][n]=(p.cm[r.m][n]||0)+cnt; sm[n]=(sm[n]||0)+1; });
+      bm[1]++;
+    }
+  });
+  const clans=Object.keys(P).map(c=>{
+    const p=P[c], w=p.wins, ev=p.ev, pct=w?Math.round(100*ev/w):0;
+    let kl; if(w>=5&&pct<15)kl='power'; else if(w>=4&&pct>=60)kl='bully'; else if(w>=4)kl='mix'; else kl='low';
+    const cast=Object.keys(p.cm).map(Number).sort((a,b)=>(p.cmn[b]||0)-(p.cmn[a]||0)).slice(0,4).map(mu=>{const sp=p.cm[mu];const top=Object.keys(sp).sort((a,b)=>sp[b]-sp[a])[0];const avg=p.cmn[mu]?Math.round(sp[top]/p.cmn[mu]*10)/10:0;return {m:mu,sp:top,avg};});
+    return {id:+c, nm:names[c]||('Clan '+c), w, ev, pct,
+      m:topk(p.m,3).map(x=>'x'+x), d:topk(p.d,2).map(x=>SPY_WD[x]),
+      d7:Array.from({length:7},(_,i)=>p.d[i]||0), sp:topk(p.sp,2), cast,
+      lg:Object.keys(p.lg).map(Number).sort((a,b)=>a-b),
+      th:(roster&&roster.clans&&roster.clans[c]!=null)?roster.clans[c]:null, kl};
+  });
+  clans.sort((a,b)=>(b.w-a.w)||(b.ev-a.ev));
+  const leagues=[...new Set(clans.flatMap(x=>x.lg))].sort((a,b)=>a-b);
+  return { meta:{v:3, clans:clans.length, rounds:rounds.length, leagues, cycles:Object.keys(cyset).map(Number).sort((a,b)=>a-b), importedAt:new Date().toISOString()},
+           clans, roster, byMultAll, spByMultAll, myId };
+}
+
+function importSpy(ev){
+  const f=ev.target && ev.target.files && ev.target.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+      const raw=JSON.parse(rd.result);
+      if(!raw.rounds && !raw.clanNames){ toast("Fichier invalide"); return; }
+      ecrire("clans", computeSpy(raw));
+      toast("Import réussi");
+      remplirClans();
+    }catch(e){ toast("Fichier invalide"); }
+  };
+  rd.readAsText(f);
+}
+function spyDropHandler(ev){ ev.preventDefault(); const d=document.getElementById('spyDrop'); if(d)d.classList.remove('over'); const f=ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]; if(f) importSpy({target:{files:[f]}}); }
+
+function remplirClans(){
+  const data=lire("clans", null);
+  const info=document.getElementById("spyInfo"), strat=document.getElementById("spyStrategy"), card=document.getElementById("spyDossierCard");
+  if(!data){ if(info)info.textContent="Aucune donnée importée pour l'instant."; if(strat)strat.innerHTML=""; if(card)card.style.display="none"; return; }
+  const m=data.meta;
+  const stale = !m.v || (data.clans[0] && data.clans[0].d7===undefined);
+  if(info) info.innerHTML=(stale?`<span style="color:var(--red);font-weight:700">⚠️ Données d'une ancienne version — ré-importe ton mw_spy.json pour activer le calendrier 7 jours.</span><br>`:'')+`<b>${m.clans}</b> clans · ${(m.rounds||0).toLocaleString('fr-CA')} rounds · ${m.leagues.length} ligues · cycles ${m.cycles.join(', ')} · importé ${(m.importedAt||'').slice(0,16).replace('T',' ')}`;
+  renderSpyStrategy(data);
+  const fc=document.getElementById("spyFicheCard"); if(fc) fc.style.display="";
+  renderClanFiche();
+  if(card) card.style.display="";
+  renderSpyTable();
+}
+
+// Fiche clan détaillée : historique par cycle (division) + habitudes de boost + casts moyens
+function renderClanFiche(){
+  const data=lire("clans",null); const host=document.getElementById("spyFiche"); if(!data||!host) return;
+  const q=((document.getElementById("spyFq")||{}).value||"").trim().toLowerCase();
+  if(!q){ host.innerHTML='<span class="muted" style="font-size:.85rem">Tape un nom pour voir la fiche complète d\'un clan (ses divisions par cycle, comment/quand/avec quoi il booste).</span>'; return; }
+  const esc=s=>(s+'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+  const KL={power:['🔨 Puissance','b-power'],bully:['🎯 Bully','b-bully'],mix:['⚖️ Opportuniste','b-mix'],low:['· Peu de données','b-low']};
+  const list=data.clans.filter(c=>c.nm.toLowerCase().includes(q)).sort((a,b)=>b.w-a.w).slice(0,8);
+  if(!list.length){ host.innerHTML='<span class="muted">Aucun clan trouvé pour « '+esc(q)+' ».</span>'; return; }
+  host.innerHTML=list.map(c=>{
+    const kb=KL[c.kl]||KL.low;
+    const hist=Object.keys(c.hist||{}).map(Number).sort((x,y)=>y-x).slice(0,12).map(cy=>`<span class="tag">cy${cy} → div${c.hist[cy]}</span>`).join(' ');
+    const cast=(c.cast||[]).map(k=>`x${k.m}: ${k.avg}× ${esc(k.sp)}`).join(' · ');
+    return `<div class="clan" style="padding:8px 0">`
+      +`<div style="font-weight:650">${esc(c.nm)} <span class="badge ${kb[1]}">${kb[0]}</span> <span class="tag">${c.ev} boosts / ${c.w} vict${c.th!=null?' · '+c.th+' TH':''}</span></div>`
+      +`<div class="sub" style="margin-top:4px"><b>📅 Divisions par cycle :</b> ${hist||'—'}</div>`
+      +`<div class="sub"><b>⚡ Booste sur :</b> ${(c.m||[]).join('·')||'—'} · <b>spells :</b> ${(c.sp||[]).map(esc).join('·')||'—'} · <b>jours :</b> ${(c.d||[]).join('·')||'—'}</div>`
+      +(cast?`<div class="sub"><b>🎯 Casts moyens :</b> ${esc(cast)}</div>`:'')
+      +`</div>`;
+  }).join('');
+}
+
+function renderSpyStrategy(data){
+  const host=document.getElementById("spyStrategy"); if(!host) return;
+  const roster=data.roster;
+  if(!roster||!roster.clans||!Object.keys(roster.clans).length){
+    host.innerHTML=`<div class="card"><h2>Stratégie de la semaine</h2><p class="muted" style="line-height:1.5">Pas de roster de ligue capté. Sur GoMining, <b>ouvre le jeu et regarde un round en direct</b> (ça capte les clans de ta ligue de la semaine), puis ré-exporte <b>mw_spy.json</b> et réimporte-le ici.</p></div>`;
+    return;
+  }
+  const byId={}; data.clans.forEach(c=>byId[c.id]=c);
+  const present=Object.keys(roster.clans).filter(id=>+id!==data.myId).map(id=>({id:+id, th:roster.clans[id], p:byId[+id]}));
+  const known=present.filter(x=>x.p&&x.p.ev>0);
+  const powerKings=present.filter(x=>x.p&&x.p.kl==='power').sort((a,b)=>b.p.w-a.p.w);
+  const bullies=present.filter(x=>x.p&&x.p.kl==='bully').sort((a,b)=>b.p.ev-a.p.ev);
+  const myTh=config.thTotal||0;
+  const bm=data.byMultAll||{};              // contestation Dune-wide (divisions rebrassées chaque cycle)
+  const spbm=data.spByMultAll||{};
+  const topSpell=mu=>{ const o=spbm[mu]; if(!o) return '—'; const k=Object.keys(o).sort((a,b)=>o[b]-o[a])[0]; return k||'—'; };
+  const muKeys=Object.keys(bm).map(Number).sort((a,b)=>a-b);
+  let mrows='';
+  muKeys.forEach(mu=>{ const a=bm[mu], n=a[0], b=a[1], pct=n?Math.round(100*b/n):0; const col=pct>=50?'var(--red)':pct>=20?'var(--accent)':'var(--green)'; mrows+=`<tr><td>x${mu}</td><td class="num">${n}</td><td style="color:${col}">${b} (${pct}%)</td><td>${topSpell(mu)}</td></tr>`; });
+  const greens=muKeys.filter(mu=>{const a=bm[mu]; return a[0]>=5 && (a[1]/a[0])<0.5 && mu>1;});
+  const reds=muKeys.filter(mu=>{const a=bm[mu]; return a[0]>=3 && (a[1]/a[0])>=0.5;});
+  const bTh=bullies.map(x=>x.th).filter(v=>v!=null).sort((a,b)=>a-b);
+  const medB=bTh.length?bTh[Math.floor(bTh.length/2)]:null;
+  const dcount={}; bullies.forEach(x=>(x.p.d||[]).forEach(dn=>{const i=SPY_WD.indexOf(dn); if(i>=0)dcount[i]=(dcount[i]||0)+1;}));
+  const peak=Object.keys(dcount).sort((a,b)=>dcount[b]-dcount[a]).slice(0,3);
+  const esc=s=>(s+'').replace(/[&<>]/g,mm=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[mm]));
+  const sig=x=>{const c=x.p; return `${esc(c.nm)} <span class="tag">${c.ev}b/${c.w}v</span> ${c.m.join('·')||'—'} · ${c.sp.map(esc).join('·')||'—'}${x.th!=null?' · '+x.th+' TH':''}`;};
+  let reco='';
+  reco+=`<div><b>Boost :</b> ${greens.length?greens.map(m=>'x'+m).join(' · '):'—'} <span class="muted">(tiers peu contestés)</span></div>`;
+  reco+=`<div style="margin-top:4px"><b>Évite :</b> x1 <span class="muted">(gagné en puissance brute)</span>${reds.length?' + '+reds.map(m=>'x'+m).join('·')+' <span class="muted">(course d\'usure)</span>':''}</div>`;
+  if(myTh && medB!=null){ reco+=`<div style="margin-top:6px">Ta base <b>${myTh} TH</b> vs bullies (~${medB} TH médian) : ${myTh>medB*2?'tu les écrases en base → à boost égal sur x2/x4, <b>tu gagnes</b>.':myTh>medB?'tu es au-dessus → boost x2/x4 est jouable.':'⚠️ certains bullies ont autant/plus de base — sois sélectif.'}</div>`; }
+  if(peak.length){ reco+=`<div style="margin-top:6px"><b>Timing :</b> les bullies pointent ${peak.map(i=>SPY_WD[i]).join('·')} → booste plutôt les autres jours.</div>`; }
+  const gsp=greens.map(topSpell).filter(s=>s&&s!=='—'); const domSp=gsp.length?gsp.sort((a,b)=>gsp.filter(v=>v===b).length-gsp.filter(v=>v===a).length)[0]:null;
+  if(domSp){ reco+=`<div style="margin-top:6px"><b>Quel boost :</b> sur tes tiers cibles, les gagnants misent surtout sur <b>${esc(domSp)}</b>. Avec ta grosse base TH, <b>Power-up</b> (×ta base) est ton meilleur levier pour les dépasser — voir l'onglet Plan.</div>`; }
+  const KLB={power:['🔨','b-power'],bully:['🎯','b-bully'],mix:['⚖️','b-mix'],low:['·','b-low']};
+  const hm=c=>`<span class="hm">${(c.d7||[0,0,0,0,0,0,0]).map((v,i)=>`<i class="${v>0?'on':''}" title="${SPY_WD[i]}${v>0?' — '+v+' boost(s)':' — aucun'}"></i>`).join('')}</span>`;
+  const advList=present.slice().sort((a,b)=>(((b.p?b.p.ev:-1))-((a.p?a.p.ev:-1)))||((b.th||0)-(a.th||0)));
+  const unknownN=present.filter(x=>!x.p).length;
+  const castStr=c=>{ if(!c||!c.cast||!c.cast.length) return '<span class="muted">—</span>'; return c.cast.map(k=>`<span class="tag">x${k.m}: ${k.avg}× ${esc(k.sp)}</span>`).join(' '); };
+  const advRows=advList.map(x=>{const c=x.p;const nm=c?esc(c.nm):('Clan '+x.id);const kb=c?(KLB[c.kl]||KLB.low):['?','b-low'];const cells=c?hm(c):'<span class="muted" style="font-size:.72rem">non fiché</span>';return `<tr><td class="nm">${nm}</td><td class="num">${x.th!=null?x.th:'—'}</td><td><span class="badge ${kb[1]}">${kb[0]}</span></td><td>${castStr(c)}</td><td>${cells}</td></tr>`;}).join('');
+  host.innerHTML=`<div class="card">
+    <h2>🎯 Stratégie — ligue ${roster.lg} · cycle ${roster.cy}</h2>
+    <div class="kv"><div class="cell">Ta puissance <b>${myTh||'?'} TH</b></div><div class="cell">${present.length} clans présents</div><div class="cell">${known.length} fichés</div><div class="cell">🔨 ${powerKings.length} rois · 🎯 ${bullies.length} bullies</div></div>
+    <div class="strat-block"><b>Contestation par multiplicateur (Dune)</b>
+      <table class="mtable"><tr class="muted"><td>mult</td><td>rounds</td><td>gagnant a boosté</td><td>spell gagnant</td></tr>${mrows||'<tr><td colspan="4" class="muted">pas de données pour cette ligue — scanne-la</td></tr>'}</table>
+    </div>
+    <div class="reco">${reco}</div>
+    <div class="strat-block"><b>⚔️ Adversaires cette semaine</b> <span class="muted">(${advList.length} fichés${unknownN?` · ${unknownN} inconnus`:''}) · trié du plus agressif au moins</span>
+      <div class="spytablewrap" style="margin-top:6px"><table class="otable"><tr><th>Clan</th><th>TH</th><th>Type</th><th>Ce qu'il caste (par mult)</th><th>Boost — Lun→Dim</th></tr>${advRows||'<tr><td colspan="5" class="muted">aucun adversaire fiché</td></tr>'}</table></div>
+      <div class="muted" style="margin-top:5px;font-size:.72rem">🟩 a boosté ce jour · 🟥 non — ordre Lun→Dim, d'après ses victoires captées (surtout cycle 155). Survole un carré pour le détail.</div>
+    </div>
+    <button class="btn blue" style="margin-top:12px" onclick="copierClansPourClaude()">Copier pour Claude (analyse approfondie)</button>
+  </div>`;
+}
+
+function spyFilter(k,btn){ spyFilterKey=k; document.querySelectorAll('#spyChips .chip').forEach(c=>c.setAttribute('aria-pressed', String(c===btn))); renderSpyTable(); }
+function spySort(k){ if(spySortKey===k) spySortDir*=-1; else{ spySortKey=k; spySortDir=(k==='nm')?1:-1; } renderSpyTable(); }
+function renderSpyTable(){
+  const data=lire("clans",null); if(!data) return;
+  const KL={power:['🔨 Puissance','b-power'],bully:['🎯 Bully','b-bully'],mix:['⚖️ Opportuniste','b-mix'],low:['· Peu de données','b-low']};
+  let list=data.clans.filter(c=>spyFilterKey==='all'||c.kl===spyFilterKey);
+  const q=((document.getElementById('spyQ')||{}).value||'').trim().toLowerCase();
+  if(q) list=list.filter(c=>c.nm.toLowerCase().includes(q));
+  list.sort((a,b)=>{let x=a[spySortKey],y=b[spySortKey]; if(Array.isArray(x))x=x.length; if(Array.isArray(y))y=y.length; if(typeof x==='string')return spySortDir*x.localeCompare(y); return spySortDir*((x||0)-(y||0));});
+  const cnt=document.getElementById('spyCount'); if(cnt) cnt.textContent=list.length+' clans'+(list.length>500?' (500 premiers — affine avec la recherche)':'');
+  const esc=s=>(s+'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+  const tb=document.getElementById('spyTbody'); if(!tb) return;
+  tb.innerHTML=list.slice(0,500).map(c=>{
+    const th=c.th!=null?` · ${c.th} TH`:'';
+    return `<tr><td class="nm">${esc(c.nm)}<span class="muted" style="font-weight:400;font-size:.72rem">${th}</span></td>`+
+      `<td class="num">${c.w}</td><td class="num">${c.pct}%</td>`+
+      `<td>${c.m.map(x=>`<span class="tag">${x}</span>`).join('')||'—'}</td>`+
+      `<td>${c.d.join('·')||'—'}</td>`+
+      `<td>${c.sp.map(x=>`<span class="tag">${esc(x)}</span>`).join('')||'—'}</td>`+
+      `<td class="num">${c.lg.length}</td>`+
+      `<td><span class="badge ${KL[c.kl][1]}">${KL[c.kl][0]}</span></td></tr>`;
+  }).join('');
+}
+
+function copierClansPourClaude(){
+  const data=lire("clans",null);
+  if(!data||!data.roster||!data.roster.clans){ toast("Rien à copier"); return; }
+  const byId={}; data.clans.forEach(c=>byId[c.id]=c);
+  const r=data.roster;
+  const lines=[`Ma ligue ${r.lg} cycle ${r.cy} — ma puissance ${config.thTotal||'?'} TH. Clans présents :`];
+  Object.keys(r.clans).filter(id=>+id!==data.myId).map(id=>byId[+id]).filter(Boolean).sort((a,b)=>b.ev-a.ev).forEach(c=>{
+    lines.push(`- ${c.nm} : ${c.w}v/${c.ev}boosts (${c.pct}%) · ${c.kl} · mult ${c.m.join('·')||'-'} · jours ${c.d.join('·')||'-'} · spells ${c.sp.join('·')||'-'}${c.th!=null?' · '+c.th+'TH':''}`);
+  });
+  const txt=lines.join('\n');
+  (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>toast("Copié — colle-le dans Claude"),()=>{ try{ const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast("Copié — colle-le dans Claude"); }catch(e){ toast("Copie impossible"); } });
+}
+
+/* ==========================================================================
    EXPORT / IMPORT
    ========================================================================== */
 
@@ -2074,7 +2384,7 @@ function importJSON(ev){
 function effacerTout(){
   if(!confirm("Effacer TOUTES les données Miner Wars ? Irréversible.")) return;
   if(!confirm("Vraiment sûr ? Pense à exporter d'abord.")) return;
-  ["entries","config","prices","lastExport"].forEach(k=>localStorage.removeItem("mw_"+k));
+  ["entries","config","prices","lastExport","clans"].forEach(k=>localStorage.removeItem("mw_"+k));
   entries=[]; config={ thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null, opexQuotidien:0 };
   toast("Tout effacé"); switchTab("saisie");
 }
