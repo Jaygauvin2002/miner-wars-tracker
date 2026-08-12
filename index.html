@@ -305,6 +305,7 @@
 
     /* Zone de contenu principale, centrée et plus large */
     .app{ flex:1; max-width:920px; margin:0 auto; padding:24px 34px 64px; }
+    .app.wide{ max-width:1500px; }   /* onglet Clans : grands tableaux → pleine largeur */
     header h1{ display:none; }
     header{ justify-content:space-between; align-items:flex-end; margin-bottom:22px; padding-bottom:16px; border-bottom:1px solid var(--border); }
     .page-title{ display:block; }
@@ -895,6 +896,7 @@ function switchTab(nom){
     document.getElementById("tab-"+t).classList.toggle("hidden", t!==nom);
   });
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b.dataset.tab===nom));
+  const _app=document.querySelector(".app"); if(_app) _app.classList.toggle("wide", nom==="clans"); // Clans = pleine largeur
   const titres={saisie:"Saisie rapide",dashboard:"Tableau de bord",graphiques:"Graphiques",historique:"Historique",plan:"Plan de jeu",reglages:"Réglages",clans:"Dossier des clans"};
   const pt=document.getElementById("pageTitle"); if(pt) pt.textContent=titres[nom]||"";
   if(nom==="dashboard") renderDashboard();
@@ -2230,7 +2232,7 @@ function renderSpyStrategy(data){
   const hm=c=>`<span class="hm">${(c.d7||[0,0,0,0,0,0,0]).map((v,i)=>`<i class="${v>0?'on':''}" title="${SPY_WD[i]}${v>0?' — '+v+' boost(s)':' — aucun'}"></i>`).join('')}</span>`;
   const advList=present.slice().sort((a,b)=>(((b.p?b.p.ev:-1))-((a.p?a.p.ev:-1)))||((b.th||0)-(a.th||0)));
   const unknownN=present.filter(x=>!x.p).length;
-  const castStr=c=>{ if(!c||!c.cast||!c.cast.length) return '<span class="muted">—</span>'; return c.cast.map(k=>`<span class="tag">x${k.m}: ${k.avg}× ${esc(k.sp)}</span>`).join(' '); };
+  const castStr=c=>{ if(!c||!c.cast||!c.cast.length) return '<span class="muted">—</span>'; return c.cast.slice(0,3).map(k=>`<span class="tag">x${k.m}: ${k.avg}× ${esc(k.sp)}</span>`).join(' '); };
   const advRows=advList.map(x=>{const c=x.p;const nm=c?esc(c.nm):('Clan '+x.id);const kb=c?(KLB[c.kl]||KLB.low):['?','b-low'];const cells=c?hm(c):'<span class="muted" style="font-size:.72rem">non fiché</span>';return `<tr><td class="nm">${nm}</td><td class="num">${x.th!=null?x.th:'—'}</td><td><span class="badge ${kb[1]}">${kb[0]}</span></td><td>${castStr(c)}</td><td>${cells}</td></tr>`;}).join('');
   host.innerHTML=`<div class="card">
     <h2>🎯 Stratégie — ligue ${roster.lg} · cycle ${roster.cy}</h2>
