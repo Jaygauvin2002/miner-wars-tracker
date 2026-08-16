@@ -146,6 +146,17 @@
   const oText = Response.prototype.text; Response.prototype.text = function () { const u = this.url; return oText.call(this).then(t => { try { if (t && (t[0] === '{' || t[0] === '[')) handle(u, JSON.parse(t)); } catch (e) {} return t; }); };
   let lastAuth = null;
   const grabAuth = hsrc => { if (!hsrc) return; try { if (typeof hsrc.forEach === 'function') hsrc.forEach((v, k) => { if (/^authorization$/i.test(k)) lastAuth = v; }); else if (typeof hsrc === 'object') Object.keys(hsrc).forEach(k => { if (/^authorization$/i.test(k)) lastAuth = hsrc[k]; }); } catch (e) {} };
+  // Décode l'expiration du jeton (JWT) SANS l'exposer — pour savoir si un bot cloud 24/7 est viable.
+  function tokenTTL() {
+    try {
+      let t = lastAuth; if (!t) return { none: true };
+      t = t.replace(/^Bearer\s+/i, ''); const p = t.split('.'); if (p.length < 2) return { opaque: true };
+      const b = p[1].replace(/-/g, '+').replace(/_/g, '/');
+      const j = JSON.parse(decodeURIComponent(escape(atob(b))));
+      if (!j.exp) return { noexp: true };
+      return { hours: Math.round((j.exp * 1000 - Date.now()) / 36e5 * 10) / 10, exp: j.exp };
+    } catch (e) { return { err: true }; }
+  }
   const freshHeaders = h => { const H = Object.assign({}, h || {}); if (lastAuth) { Object.keys(H).forEach(k => { if (/^authorization$/i.test(k)) delete H[k]; }); H['Authorization'] = lastAuth; } return H; };
   const oFetch = window.fetch;
   window.fetch = function (input, init) {
@@ -261,10 +272,21 @@
           : `<div class="row2 s">💰 ${f(L.gmtCum, 2)} · ₿ ${f(L.satsCum)} <span style="opacity:.6">· cumul (récompense par cycle auto dès le prochain mardi)</span></div>`;
         return `<div class="scan" style="margin-top:8px"><div class="hd">👤 Toi (live)</div>` + cycleLine +
           `<div class="row2 s">🏅 rang ${L.rank == null ? '—' : L.rank} · 🤖 bot ${f(L.botGmt, 2)} GMT · GMT $${f(L.pxGmt, 4)}</div>` +
-          `<button id="mwperso" class="btng" style="margin-top:6px;font-size:11px;padding:3px 8px">📋 copier données perso (debug)</button></div>`; })() +
+          `<button id="mwperso" class="btng" style="margin-top:6px;font-size:11px;padding:3px 8px">📋 copier données perso (debug)</button>` +
+          `<button id="mwtokbtn" class="btng" style="margin-top:6px;margin-left:6px;font-size:11px;padding:3px 8px;background:#7ea0ff;color:#04101f">🔑 durée du jeton</button>` +
+          `<div id="mwtok" class="row2 s" style="margin-top:6px"></div></div>`; })() +
       `<div class="row s" style="margin-top:8px;color:#8fd3a8">📡 Envoi auto vers ton tracker actif — ouvre ta page Miner Wars pour analyser.</div>`;
     const bs = box.querySelector('#mwscan'); if (bs) bs.onclick = () => { const a = +box.querySelector('#lgA').value || 1, b = +box.querySelector('#lgB').value || 40, n = +box.querySelector('#ncy').value || 1; scan(a, b, n); };
     const bt = box.querySelector('#mwstop'); if (bt) bt.onclick = () => { scanStop = true; };
+    const btk = box.querySelector('#mwtokbtn'); if (btk) btk.onclick = () => {
+      const el = box.querySelector('#mwtok'); const r = tokenTTL();
+      if (!el) return;
+      if (r.none) el.innerHTML = '⚠️ Aucun jeton vu — recharge/ouvre le jeu puis réessaie.';
+      else if (r.opaque) el.innerHTML = '🔒 Jeton opaque (pas un JWT) — je vérifierai autrement.';
+      else if (r.noexp) el.innerHTML = '♾️ Jeton sans expiration (bon signe pour le 24/7).';
+      else if (r.hours != null) el.innerHTML = `⏳ Le jeton expire dans <b>${r.hours} h</b>.` + (r.hours >= 24 ? ' ✅ Viable pour un bot cloud.' : ' ⚠️ Court — il faudra le renouveler.');
+      else el.innerHTML = 'Impossible de lire le jeton.';
+    };
     const bp = box.querySelector('#mwperso'); if (bp) bp.onclick = () => {
       const j = JSON.stringify({ total: S.total, pos: S.pos, botGmt: S.botGmt, gmtPrice: S.gmtPrice, live: S.live, myId: S.myId, nowCy: S.nowCy, seenUrls: S.seenUrls, sampleRound: S.sampleRound, sampleMyRound: S.sampleMyRound, sampleUserRound: S.sampleUserRound, lastRoundKeys: S.lastRoundKeys }, null, 2);
       const done = () => { bp.textContent = '✅ copié — colle dans le chat'; };
