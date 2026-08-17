@@ -967,7 +967,7 @@ function ouvrirForm(type, id){
     html += `</details>`;
   }
   else if(type==="payout"){
-    html += `<small class="muted">${ic('info',13)} <b>Entre le montant dans ton wallet APRÈS avoir tout reçu (mardi).</b> L'app calcule : ce montant <b>−</b> ton dernier solde de Journée avant le payout = ton <b>net du cycle</b>. (Pas besoin d'additionner les micro-transactions.)</small>`;
+    html += `<small class="muted">${ic('info',13)} <b>Entre le net que tu as vraiment fait ce cycle</b> (le dépôt reçu au payout). L'app en retire ensuite le coût du bot. C'est le seul chiffre vraiment fiable — l'app ne peut pas le deviner (tu vides ton wallet, les frais sont cachés).</small>`;
     // Sélecteur explicite du cycle payé (décorrèle de la date de saisie).
     const _curP = debutCycle(new Date());
     const _derivedKey = e ? (()=>{ const dd=debutCycle(new Date(e.date)); dd.setUTCDate(dd.getUTCDate()-7); return cleCycle(dd); })() : null;
@@ -981,8 +981,11 @@ function ouvrirForm(type, id){
       _cycOpts += `<option value="${k}" ${k===_wantKey?'selected':''}>${lbl}${tag}</option>`;
     }
     html += champ("Ce payout paie la semaine", `<select id="f_pcycle">${_cycOpts}</select>`);
+    html += champ("💰 Net reçu ce cycle (USD) — le dépôt du payout", `<input type="number" inputmode="decimal" step="0.01" id="f_pnetusd" placeholder="ex. 20" value="${e&&e.netUsdCycle!=null? e.netUsdCycle : ''}">`);
+    html += `<details class="detail"><summary>${trLit('Optionnel','Optional')}</summary>`;
     html += champ("Solde GMT du wallet APRÈS le payout (tout reçu)", `<input type="number" inputmode="decimal" step="0.01" id="f_psolde" placeholder="ex. 112.20" value="${e&&e.soldeWalletGmt!=null? e.soldeWalletGmt : ''}">`);
     html += champ("Achats de TH ce cycle (GMT — optionnel, 0 pendant les tests)", `<input type="number" inputmode="decimal" step="0.01" id="f_pthachat" placeholder="0" value="${e&&e.thAchatGmt!=null? e.thAchatGmt : ''}">`);
+    html += `</details>`;
   }
   else if(type==="botcfg"){
     // Une entrée par cycle : ce que le bot a fait, PAR multiplicateur.
@@ -1067,11 +1070,13 @@ function sauverEntree(type){
     snapshotPrix(obj);
   }
   else if(type==="payout"){
+    const pnetusd = document.getElementById("f_pnetusd").value;
     const psolde = document.getElementById("f_psolde").value, pthachat = document.getElementById("f_pthachat").value;
     const pcyc = document.getElementById("f_pcycle"); obj.cycleKey = pcyc ? pcyc.value : null;
+    obj.netUsdCycle = pnetusd!=="" ? parseFloat(pnetusd)||0 : null;
     obj.soldeWalletGmt = psolde!=="" ? Math.max(0, parseFloat(psolde)||0) : null;
     obj.thAchatGmt = pthachat!=="" ? Math.max(0, parseFloat(pthachat)||0) : null;
-    if((obj.rewardUSD + obj.prUSD) <= 0){ toast("Entre au moins Reward ou PR"); return; }
+    if(obj.netUsdCycle==null && obj.soldeWalletGmt==null){ toast("Entre le net reçu ce cycle"); return; }
     snapshotPrix(obj);
   }
   else if(type==="botcfg"){
@@ -1277,56 +1282,23 @@ function statsCycle(debut){
   // + achats de TH du cycle (investissement, pas une perte). Frais déjà retirés avant crédit → inclus.
   const thAchatGmt = es.reduce((a,x)=> a + (+x.thAchatGmt||0), 0);
   let netReelGmt = null, netReelUSD = null, soldeFin = null, soldeDebut = null, netSrc = null;
-  const _payoutNet = payouts.filter(p=> p.netGmtCycle!=null).sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
-  const _payoutSolde = payouts.filter(p=> p.soldeWalletGmt!=null).sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
-  if(_payoutNet){                                   // 1) net saisi directement (le plus simple, prime sur tout)
+  // NET RÉEL = le DÉPÔT que tu as réellement touché ce cycle (tu le connais), saisi au payout.
+  //   Le « saut de solde » et la « projection » ont été RETIRÉS : tu vides ton wallet chaque semaine
+  //   → ces méthodes donnaient 0 (04 août) ou des chiffres absurdes (-27 en projection). Elles ne reviennent plus.
+  const _payoutNetUsd = payouts.filter(p=> p.netUsdCycle!=null).sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
+  const _payoutNet    = payouts.filter(p=> p.netGmtCycle!=null).sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
+  if(_payoutNetUsd){                                 // dépôt saisi en USD (le plus simple pour toi)
+    netReelUSD = (+_payoutNetUsd.netUsdCycle) + thAchatGmt*pxGmt;
+    netReelGmt = pxGmt>0 ? netReelUSD/pxGmt : null; netSrc = 'saisi';
+  } else if(_payoutNet){                             // dépôt saisi en GMT
     netReelGmt = (+_payoutNet.netGmtCycle) + thAchatGmt;
     netReelUSD = netReelGmt * pxGmt; netSrc = 'saisi';
-  } else if(_payoutSolde){                           // 2) saut de solde avant/après le payout
-    const pDate = new Date(_payoutSolde.date);
-    const avant = entries.filter(x=> x.soldeWalletGmt!=null && new Date(x.date) < pDate)
-      .sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
-    soldeFin = +_payoutSolde.soldeWalletGmt;                 // solde APRÈS payout
-    soldeDebut = avant ? +avant.soldeWalletGmt : 0;          // solde AVANT payout ; aucun relevé (1er cycle) => wallet supposé vide
-    netReelGmt = soldeFin - soldeDebut + thAchatGmt;
-    netReelUSD = netReelGmt * pxGmt; netSrc = 'solde';
   }
   const netReel = netReelUSD!=null;
-  // PROJECTION en cours de semaine (avant payout) : ancrée sur le NET RÉEL du dernier cycle payé,
-  //   mise à l'échelle par ta perf de blocs de CE cycle (projetée sur 7 j). Bien plus proche du payout que le brut.
-  let projNetUSD = null, projSrc = null;
-  if(!netReel){
-    // Le payout du cycle PRÉCÉDENT est daté le mardi = 1er jour de CE cycle → on le cherche avant (debut+7),
-    //   ce qui exclut un éventuel payout propre à ce cycle (daté ≥ debut+7).
-    const _finProj = new Date(debut); _finProj.setUTCDate(_finProj.getUTCDate()+7);
-    const lastPay = entries.filter(e=> e.type==="payout" && e.soldeWalletGmt!=null && new Date(e.date) < _finProj)
-      .sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
-    if(lastPay){
-      const before = entries.filter(x=> x.soldeWalletGmt!=null && new Date(x.date) < new Date(lastPay.date))
-        .sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
-      if(before){
-        const lastNetGmt = (+lastPay.soldeWalletGmt) - (+before.soldeWalletGmt);   // net réel du dernier cycle payé
-        const lpDeb = debutCycle(new Date(lastPay.date)); lpDeb.setUTCDate(lpDeb.getUTCDate()-7);
-        const lpFin = new Date(lpDeb); lpFin.setUTCDate(lpFin.getUTCDate()+7);
-        const bval = arr => arr.reduce((a,b)=> a + (b.btcSats||0)/SATS_PAR_BTC*pxBtc + (b.gmtPerso||0)*pxGmt, 0);
-        const lpBlockUSD  = bval(entries.filter(x=> x.type==="bloc" && new Date(x.date)>=lpDeb && new Date(x.date)<lpFin));
-        const curBlockUSD = bval(blocs);
-        if(lpBlockUSD > 0 && curBlockUSD > 0){
-          const curFullUSD = curBlockUSD * 7 / _jours;              // blocs de ce cycle projetés plein cycle
-          projNetUSD = lastNetGmt * (curFullUSD / lpBlockUSD) * pxGmt;
-          projSrc = 'projection';
-        } else {
-          projNetUSD = lastNetGmt * (_jours/7) * pxGmt;             // pas encore de blocs : prorata simple
-          projSrc = 'prorata';
-        }
-      }
-    }
-  }
-  // TAKE-HOME = récompense − spells. Le saut de solde (netReelUSD) = la récompense déposée ; les spells ont été
-  //   dépensés AVANT le payout (déjà dans le "avant") → on les retranche. Passif : depUSD=0 → inchangé.
-  //   (Achats TH = investissement, déjà rajoutés dans netReelGmt, PAS retranchés.)
-  const netAbsoluUSD = netReel ? (netReelUSD - depUSD)
-    : (projNetUSD!=null ? (projNetUSD - depUSD) : (gainsUSD - depUSD - feeUSD));
+  const projNetUSD = null, projSrc = null;           // projection retirée (non fiable : wallet vidé)
+  // TAKE-HOME = dépôt reçu − dépense de spells (les frais sont DÉJÀ retirés dans le dépôt).
+  //   Sans dépôt saisi (cycle en cours) : provisoire = récompense − spells − frais estimés.
+  const netAbsoluUSD = netReel ? (netReelUSD - depUSD) : (gainsUSD - depUSD - feeUSD);
 
   // Diagnostic de réconciliation blocs vs payout (repère les oublis de saisie)
   const satsBlocs = blocs.reduce((s,e)=>s+e.btcSats,0);
