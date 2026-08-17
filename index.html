@@ -928,35 +928,43 @@ function ouvrirForm(type, id){
 
   if(type==="jour"){
     const _lastTh = entries.filter(x=>x.type==="jour" && x.thTotal!=null).sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
-    html += champ("Ma puissance — TH total (change par cycle)", `<input type="number" inputmode="decimal" id="f_th" placeholder="456" value="${e? e.thTotal : (_lastTh? _lastTh.thTotal : (config.thTotal||''))}">`);
-    html += champ("Rechargé dans le bot ce jour (GMT — 0 sauf recharge)", `<input type="number" inputmode="decimal" id="f_recharge" placeholder="0" value="${e&&e.rechargeBot!=null? e.rechargeBot : ''}">`);
-    html += champ("Solde restant du Spell Bot (GMT)", `<input type="number" inputmode="decimal" id="f_solde" placeholder="ex. 200" value="${e? e.soldeBot : ''}">`);
-    html += `<small class="muted">${ic('info',12)} Dépense du bot = <b>(ce que tu y as mis)</b> − <b>(solde restant)</b>. Mets le montant le jour où tu <b>recharges</b> le bot, et le <b>solde restant</b> chaque jour. (Le jeu ne montre pas la dépense, juste le solde.)</small>`;
-    html += champ("GMT dépensé à la main (hors bot — optionnel)", `<input type="number" inputmode="decimal" id="f_gman" value="${e? e.gmtDepenseManuel : ''}">`);
-    html += champ("Solde GMT TOTAL du wallet (pour le net du cycle)", `<input type="number" inputmode="decimal" id="f_jsolde" placeholder="ex. 420.50" value="${e&&e.soldeWalletGmt!=null? e.soldeWalletGmt : ''}">`);
+    const _live = (liveEtat && liveEtat._auto && liveEtat.cycle===cleCycle(new Date())) ? liveEtat : null;
+    const _pf = (v,dec)=> v==null ? '' : (dec? Math.round(v*100)/100 : Math.round(v));
+    // — ESSENTIEL : les 2 seules choses que tu tapes vraiment —
     html += `<div class="field-inline"><input type="checkbox" id="f_service" ${(!e || e.serviceFait)?'checked':''}><label for="f_service">Service fait aujourd'hui</label></div>`;
-    html += `<div style="border-top:1px solid var(--border);margin-top:14px;padding-top:12px"></div>`;
-    html += `<small class="muted">${ic('info',13)} <b>État du jeu</b> (optionnel) — recopie les 3 totaux du cycle affichés dans Miner Wars. Sert de référence autoritaire pour les gains estimés + repère les blocs oubliés.</small>`;
+    html += champ("Rechargé dans le bot aujourd'hui (GMT — 0 sauf recharge)", `<input type="number" inputmode="decimal" id="f_recharge" placeholder="0" value="${e&&e.rechargeBot!=null? e.rechargeBot : ''}">`);
+    if(_live) html += `<div style="margin-top:8px;padding:8px 11px;border-radius:8px;background:rgba(52,199,89,.12);color:var(--green);font-size:.82rem;font-weight:600">${trLit('🟢 L’extension a pré-rempli le reste (solde bot, récompense du cycle). Vérifie et enregistre.','🟢 The extension pre-filled the rest (bot balance, cycle reward). Check and save.')}</div>`;
+    // — DÉTAILS DU CYCLE : pré-remplis par l'extension, repliés —
+    html += `<details class="detail" ${_live?'':'open'} style="margin-top:12px"><summary>${trLit('Détails du cycle','Cycle details')} ${_live?'🟢':''}</summary>`;
+    html += champ("Ma puissance — TH total (change par cycle)", `<input type="number" inputmode="decimal" id="f_th" placeholder="456" value="${e? e.thTotal : (_lastTh? _lastTh.thTotal : (config.thTotal||''))}">`);
+    html += champ("Solde restant du Spell Bot (GMT)", `<input type="number" inputmode="decimal" id="f_solde" placeholder="ex. 200" value="${e? e.soldeBot : (_live&&_live.botGmt!=null? _pf(_live.botGmt,1) : '')}">`);
+    html += `<small class="muted">${ic('info',12)} Dépense du bot = <b>(rechargé)</b> − <b>(solde restant)</b>. Le solde est capté auto par l'extension.</small>`;
     html += `<div class="two">`;
     html += champ("Blocs — total du jeu (un x4 = 4)", `<input type="number" inputmode="numeric" id="f_jblocs" placeholder="33" value="${e&&e.jeuBlocs!=null? e.jeuBlocs : ''}">`);
-    html += champ("BTC total (jeu, en sats)", `<input type="number" inputmode="numeric" id="f_jsats" placeholder="211000" value="${e&&e.jeuSats!=null? e.jeuSats : ''}">`);
+    html += champ("BTC total (jeu, en sats)", `<input type="number" inputmode="numeric" id="f_jsats" placeholder="211000" value="${e&&e.jeuSats!=null? e.jeuSats : (_live&&_live.sats!=null? _pf(_live.sats,0) : '')}">`);
     html += `</div>`;
-    html += champ("GMT total (jeu)", `<input type="number" inputmode="decimal" id="f_jgmt" placeholder="74.32" value="${e&&e.jeuGmt!=null? e.jeuGmt : ''}">`);
-    html += `<small class="muted">${ic('info',12)} Le BTC se saisit en <b>sats</b> (ex. 0,00211 BTC = 211 000 sats).</small>`;
+    html += champ("GMT total (jeu)", `<input type="number" inputmode="decimal" id="f_jgmt" placeholder="74.32" value="${e&&e.jeuGmt!=null? e.jeuGmt : (_live&&_live.gmt!=null? _pf(_live.gmt,1) : '')}">`);
+    html += `</details>`;
+    // — AVANCÉ : rarement nécessaire —
+    html += `<details class="detail"><summary>${trLit('Avancé (rarement nécessaire)','Advanced (rarely needed)')}</summary>`;
+    html += champ("GMT dépensé à la main (hors bot — optionnel)", `<input type="number" inputmode="decimal" id="f_gman" value="${e? e.gmtDepenseManuel : ''}">`);
+    html += champ("Solde GMT TOTAL du wallet (pour le net du cycle)", `<input type="number" inputmode="decimal" id="f_jsolde" placeholder="ex. 420.50" value="${e&&e.soldeWalletGmt!=null? e.soldeWalletGmt : ''}">`);
     html += champ("W/TH moyen de la ligue (ce cycle)", `<input type="number" inputmode="decimal" id="f_eeligue" placeholder="15" value="${e&&e.eeLigue!=null? e.eeLigue : ''}">`);
     html += champ("TH total du round (constant ce cycle)", `<input type="number" inputmode="decimal" id="f_roundth" placeholder="39540" value="${e&&e.roundTH!=null? e.roundTH : ''}">`);
-    html += `<small class="muted">${ic('info',12)} Estime l'électricité du cycle (formule du jeu · tarif kWh dans Réglages). Frais exacts au payout.</small>`;
+    html += `</details>`;
   }
   else if(type==="bloc"){
     multChoisi = e ? e.multiplicateur : null;
     html += `<label>Multiplicateur</label><div class="mult-grid" id="multGrid">`;
     MULTIS.forEach(mx=> html += `<button type="button" data-m="${mx}" class="${multChoisi===mx?'sel':''}" onclick="choisirMult(${mx})">x${mx}</button>`);
     html += `</div>`;
-    html += `<small class="muted">${ic('info',13)} Montants <b>approximatifs</b> affichés en jeu — le vrai total est figé au <b>payout du mardi</b>. Saisis l'estimation ; le ROI se recalera sur le payout.</small>`;
-    html += champ("Récompense clan estimée (sats)", `<input type="number" inputmode="numeric" id="f_sats" value="${e? e.btcSats : ''}">`);
-    html += champ("Bloc perso estimé (GMT)", `<input type="number" inputmode="decimal" id="f_gmtperso" value="${e? e.gmtPerso : ''}">`);
     html += champ("Spells actifs", `<input type="text" id="f_spells" value="${e? escAttr(e.spellsActifs) : ''}">`);
     html += champ("Durée de la ronde (min, optionnel)", `<input type="number" inputmode="numeric" id="f_duree" value="${e&&e.dureeRondeMin? e.dureeRondeMin : ''}">`);
+    html += `<details class="detail"><summary>${trLit('Montants estimés (optionnel)','Estimated amounts (optional)')}</summary>`;
+    html += `<small class="muted">${ic('info',13)} Montants <b>approximatifs</b> — le vrai total est figé au <b>payout du mardi</b> (le ROI se recale dessus). Souvent inutile : la récompense du cycle est captée auto.</small>`;
+    html += champ("Récompense clan estimée (sats)", `<input type="number" inputmode="numeric" id="f_sats" value="${e? e.btcSats : ''}">`);
+    html += champ("Bloc perso estimé (GMT)", `<input type="number" inputmode="decimal" id="f_gmtperso" value="${e? e.gmtPerso : ''}">`);
+    html += `</details>`;
   }
   else if(type==="payout"){
     html += `<small class="muted">${ic('info',13)} <b>Entre le montant dans ton wallet APRÈS avoir tout reçu (mardi).</b> L'app calcule : ce montant <b>−</b> ton dernier solde de Journée avant le payout = ton <b>net du cycle</b>. (Pas besoin d'additionner les micro-transactions.)</small>`;
