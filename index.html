@@ -1333,13 +1333,16 @@ function statsCycle(debut){
   const gmtBlocs  = blocs.reduce((s,e)=>s+e.gmtPerso,0);
 
   const nbBlocs   = blocs.length;
+  // Compte de blocs AFFICHÉ = TOUJOURS la somme des multiplicateurs (un x4 = 4), jamais le nb d'entrées.
+  const loggedMult = blocs.reduce((a,b)=>a+(b.multiplicateur||0),0);
+  const blocsAff   = Math.max(loggedMult, (etat && etat.blocs!=null) ? etat.blocs : 0);
   const satsMoy   = nbBlocs ? satsBlocs/nbBlocs : 0;
   const gmtBlocMoy= nbBlocs ? gmtBlocs/nbBlocs : 0;
   const coutGmtParBloc = nbBlocs ? depGmt/nbBlocs : 0;
 
   return { es, jours, blocs, payouts, aPayout, live: !!live, liveMaj: live? live.maj : null, liveFinal: !!livePay,
     rankBtc: live&&live.rankBtc!=null? live.rankBtc:null, rankGmt: live&&live.rankGmt!=null? live.rankGmt:null, botOn: live&&live.botOn!=null? live.botOn:null,
-    etat, etatDate: etatJ?etatJ.date:null, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, depGmt, botSpend, opexGmt, feeUSD, feeSaisi, feeSrc, feeDiag, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, netReel, netReelGmt, netSrc, soldeFin, soldeDebut, thAchatGmt, projNetUSD, projSrc, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
+    etat, etatDate: etatJ?etatJ.date:null, nbBlocsJeu: (etat && etat.blocs!=null) ? etat.blocs : null, loggedMult, blocsAff, depGmt, botSpend, opexGmt, feeUSD, feeSaisi, feeSrc, feeDiag, satsGagnes, gmtGagnes, satsBlocs, gmtBlocs, pxBtc, pxGmt, depUSD, gainsUSD, roiUSD, opexUSD, netAbsoluUSD, netReel, netReelGmt, netSrc, soldeFin, soldeDebut, thAchatGmt, projNetUSD, projSrc, nbBlocs, satsMoy, gmtBlocMoy, coutGmtParBloc };
 }
 
 // Tous les cycles présents dans les données, du plus ancien au plus récent.
@@ -1358,7 +1361,7 @@ function deltaBadge(cur, prev){
 function renderApercu(){
   const cy = tousLesCycles();
   if(!cy.length) return "";
-  const tot = cy.reduce((a,c2)=>{ a.blocs+=(c2.s.nbBlocsJeu!=null?c2.s.nbBlocsJeu:c2.s.nbBlocs); a.depGmt+=c2.s.depGmt; a.gainsUSD+=c2.s.gainsUSD; a.depUSD+=c2.s.depUSD; a.netAbs+=c2.s.netAbsoluUSD; a.sats+=c2.s.satsGagnes; a.gmt+=c2.s.gmtGagnes; return a; }, {blocs:0,depGmt:0,gainsUSD:0,depUSD:0,netAbs:0,sats:0,gmt:0});
+  const tot = cy.reduce((a,c2)=>{ a.blocs+=c2.s.blocsAff; a.depGmt+=c2.s.depGmt; a.gainsUSD+=c2.s.gainsUSD; a.depUSD+=c2.s.depUSD; a.netAbs+=c2.s.netAbsoluUSD; a.sats+=c2.s.satsGagnes; a.gmt+=c2.s.gmtGagnes; return a; }, {blocs:0,depGmt:0,gainsUSD:0,depUSD:0,netAbs:0,sats:0,gmt:0});
   const net = tot.gainsUSD - tot.depUSD;
   const roi = tot.depUSD>0 ? tot.gainsUSD/tot.depUSD : 0;
   const meilleur = entries.filter(e=>e.type==="bloc").reduce((m,e)=> Math.max(m, e.btcSats||0), 0);
@@ -1380,12 +1383,14 @@ function renderApercu(){
 function renderRepartitionMult(){
   const blocs = entries.filter(e=>e.type==="bloc");
   if(!blocs.length) return "";
+  const totMult = blocs.reduce((a,b)=>a+(b.multiplicateur||0),0);   // Σmultiplicateurs total
   const rows = MULTIS.map(mx=>{
     const bs = blocs.filter(b=>b.multiplicateur===mx);
     if(!bs.length) return "";
+    const tierMult = bs.length*mx;   // blocs = Σmultiplicateurs (un x4 = 4)
     const satsTot = bs.reduce((a,b)=>a+b.btcSats,0);
     const gmtMoy = bs.reduce((a,b)=>a+b.gmtPerso,0)/bs.length;
-    return `<tr><td>x${mx}</td><td>${bs.length}</td><td>${(bs.length/blocs.length*100).toFixed(0)} %</td><td>${fmtNum(satsTot/bs.length)}</td><td>${fmtNum(satsTot)}</td><td>${fmtNum(gmtMoy,2)}</td></tr>`;
+    return `<tr><td>x${mx}</td><td>${tierMult}</td><td>${totMult?(tierMult/totMult*100).toFixed(0):0} %</td><td>${fmtNum(satsTot/bs.length)}</td><td>${fmtNum(satsTot)}</td><td>${fmtNum(gmtMoy,2)}</td></tr>`;
   }).join("");
   return `<div class="card"><h2>Répartition des blocs par multiplicateur</h2>
     <div class="table-wrap"><table class="cyc">
@@ -1406,7 +1411,7 @@ function renderTableauCycles(){
     return `<tr>
       <td>${dateTxt}${estRef?' <span class="muted">(réf.)</span>':''}</td>
       <td>${passif?'<span class="muted">Passif</span>':'Boosté'}</td>
-      <td>${st.nbBlocsJeu!=null?st.nbBlocsJeu:st.nbBlocs}</td>
+      <td>${st.blocsAff}</td>
       <td>${fmtNum(st.depGmt,0)}</td>
       <td>${fmtUSD(st.gainsUSD)}</td>
       <td class="${roi==null?'':(roi>=1?'pos':'neg')}">${roi==null?'—':roi.toFixed(2)+'×'}</td>
@@ -1431,7 +1436,7 @@ function renderCadence(){
   const nbCycles = cy.length || 1;
   const totSats = cy.reduce((a,c2)=> a + c2.s.satsGagnes, 0);
   // Compte de blocs : total du jeu (autoritaire) par cycle si dispo, sinon blocs loggés.
-  const totBlocs = cy.reduce((a,c2)=> a + (c2.s.nbBlocsJeu!=null?c2.s.nbBlocsJeu:c2.s.nbBlocs), 0);
+  const totBlocs = cy.reduce((a,c2)=> a + c2.s.blocsAff, 0);
   const blocsJour = totBlocs / joursEcoules;
   return `<div class="card"><h2>Cadence — sur ${joursEcoules} jour${joursEcoules>1?'s':''} suivis</h2>
     <div class="grid">
@@ -1610,9 +1615,9 @@ function renderStripCycle(s, prev){
   const reste = budget - depBot;
   // Compte de blocs affiché : total du jeu (autoritaire) si dispo, sinon blocs loggés.
   // Le jeu compte par MULTIPLICATEUR (un x4 = 4 blocs). On compare donc à la somme des multiplicateurs loggés.
-  const loggedMult = s.blocs.reduce((a,b)=>a+b.multiplicateur,0);
-  const bAff  = s.nbBlocsJeu!=null ? s.nbBlocsJeu : loggedMult;
-  const bPrev = prev ? (prev.nbBlocsJeu!=null ? prev.nbBlocsJeu : prev.blocs.reduce((a,b)=>a+b.multiplicateur,0)) : null;
+  const loggedMult = s.loggedMult;
+  const bAff  = s.blocsAff;
+  const bPrev = prev ? prev.blocsAff : null;
   const manque = s.nbBlocsJeu!=null ? s.nbBlocsJeu - loggedMult : 0;
   // Bloc loggé APRÈS le dernier total du jeu ? → le total du jeu est juste périmé, pas une vraie incohérence.
   const dernierBlocDate = s.blocs.length ? s.blocs.reduce((a,b)=> new Date(b.date)>new Date(a.date)?b:a).date : null;
@@ -1876,7 +1881,7 @@ function renderGraphiques(){
   const parJour = {};
   es.filter(e=>e.type==="bloc").forEach(e=>{
     const k = minuit(e.date).toISOString().slice(0,10);
-    parJour[k] = (parJour[k]||0) + 1;
+    parJour[k] = (parJour[k]||0) + (e.multiplicateur||1);   // Σmultiplicateurs (un x4 = 4)
   });
   const joursTri = Object.keys(parJour).sort();
   detruireChart("blocsJour");
@@ -1891,7 +1896,7 @@ function renderGraphiques(){
   const parCycleB = {};
   es.filter(e=>e.type==="bloc").forEach(e=>{
     const k = cleCycle(e.date);
-    parCycleB[k] = (parCycleB[k]||0) + 1;
+    parCycleB[k] = (parCycleB[k]||0) + (e.multiplicateur||1);   // Σmultiplicateurs (un x4 = 4)
   });
   const cyclesTri = Object.keys(parCycleB).sort();
   detruireChart("blocsCycle");
@@ -1983,7 +1988,7 @@ function renderHistorique(){
     const roi = st.depUSD>0 ? (st.gainsUSD/st.depUSD).toFixed(2)+"×" : "—";
     const head = `<div class="hist-head">
       <span class="hist-range">${fmtDateUTC(debut,{day:"2-digit",month:"short"})} → ${fmtDateUTC(fin,{day:"2-digit",month:"short"})}</span>
-      <span class="hist-stat">${(st.nbBlocsJeu!=null?st.nbBlocsJeu:st.nbBlocs)} bloc${(st.nbBlocsJeu!=null?st.nbBlocsJeu:st.nbBlocs)>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi} · <span class="${st.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(st.netAbsoluUSD)}</span></span>
+      <span class="hist-stat">${st.blocsAff} bloc${st.blocsAff>1?'s':''} · ${fmtNum(st.depGmt,0)} GMT · ${fmtUSD(st.gainsUSD)} · ROI ${roi} · <span class="${st.netAbsoluUSD>=0?'pos':'neg'}">${fmtUSD(st.netAbsoluUSD)}</span></span>
     </div>`;
     const rows = groupes[k].map(e=>{
       const m = meta[e.type] || meta.jour;

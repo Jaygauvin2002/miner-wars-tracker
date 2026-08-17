@@ -138,6 +138,7 @@
           }
         }
       }
+      else if (url.includes('rewards-by-user')) { if (!S.sampleRewards) S.sampleRewards = d; S.rewardsUrl = url; }   // historique des blocs gagnés (par cycle + multiplicateur) → à mapper pour l'auto-log
       else return;
       S.updated = new Date().toISOString(); save(); render();
     } catch (e) {}
@@ -288,7 +289,7 @@
       else el.innerHTML = 'Impossible de lire le jeton.';
     };
     const bp = box.querySelector('#mwperso'); if (bp) bp.onclick = () => {
-      const j = JSON.stringify({ total: S.total, pos: S.pos, botGmt: S.botGmt, gmtPrice: S.gmtPrice, live: S.live, myId: S.myId, nowCy: S.nowCy, seenUrls: S.seenUrls, sampleRound: S.sampleRound, sampleMyRound: S.sampleMyRound, sampleUserRound: S.sampleUserRound, lastRoundKeys: S.lastRoundKeys }, null, 2);
+      const j = JSON.stringify({ total: S.total, pos: S.pos, botGmt: S.botGmt, gmtPrice: S.gmtPrice, live: S.live, myId: S.myId, nowCy: S.nowCy, seenUrls: S.seenUrls, sampleRound: S.sampleRound, sampleMyRound: S.sampleMyRound, sampleUserRound: S.sampleUserRound, lastRoundKeys: S.lastRoundKeys, sampleRewards: S.sampleRewards, rewardsUrl: S.rewardsUrl }, null, 2);
       const done = () => { bp.textContent = '✅ copié — colle dans le chat'; };
       try { navigator.clipboard.writeText(j).then(done).catch(() => { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }); }
       catch (e) { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }
