@@ -1548,7 +1548,9 @@ function renderLiveAuto(debut){
     ? `${chip('💰 GMT', f(L.gmt,2))} ${chip('₿ sats', f(L.sats))} ${chipG('🧱 '+trLit('blocs (manuel)','blocks (manual)'), f(L.blocs))}`
     : `${chipG('💰 GMT '+trLit('cumul','total'), f(L.gmtCum,2))} ${chipG('₿ sats '+trLit('cumul','total'), f(L.satsCum))}`;
   const note = cycleOk
-    ? trLit('💰 GMT + ₿ sats = récompense BRUTE du cycle (BTC des blocs + GMT). Les frais élec./service quotidiens sont déduits plus bas pour le NET.','💰 GMT + ₿ sats = GROSS reward this cycle (block BTC + GMT). Daily electricity/service fees are deducted below for the NET.')
+    ? (L.src==='leaderboard'
+        ? trLit(`💰 GMT + ₿ sats = ta perf du cycle (leaderboard)${L.share?` · ta part ≈ ${L.share}% du clan`:''}. Le NET réel se fige au payout (frais déduits).`,`💰 GMT + ₿ sats = your cycle performance (leaderboard)${L.share?` · your share ≈ ${L.share}% of clan`:''}. Real NET locks at payout (fees deducted).`)
+        : trLit('💰 GMT + ₿ sats = récompense BRUTE du cycle (BTC des blocs + GMT). Les frais élec./service quotidiens sont déduits plus bas pour le NET.','💰 GMT + ₿ sats = GROSS reward this cycle (block BTC + GMT). Daily electricity/service fees are deducted below for the NET.'))
     : trLit('⏳ Cycle capté en cours de route : la récompense du cycle (cumul − départ) devient automatique dès le prochain mardi. En attendant, saisie manuelle. Rang / solde bot / prix sont déjà à jour.','⏳ Cycle caught mid-way: the per-cycle reward (total − start) becomes automatic from next Tuesday. Manual entry meanwhile. Rank / bot balance / price are already live.');
   return `<div class="card" data-noi18n style="border-color:rgba(52,199,89,.35)">
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -2239,9 +2241,12 @@ function appliquerLiveSpy(L){
   if(L.rank!=null)   le.rank  = L.rank;
   if(L.leagueId!=null) le.leagueId = L.leagueId;
   if(L.userRank!=null) le.userRank = L.userRank;
-  if(L.gmtCum!=null)  le.gmtCum  = L.gmtCum;    // cumul depuis le début du clan (info)
+  if(L.gmtCum!=null)  le.gmtCum  = L.gmtCum;
   if(L.satsCum!=null) le.satsCum = L.satsCum;
-  le.baseTrusted = !!L.baseTrusted;             // false = cycle capté en cours de route (récompense du cycle pas encore fiable)
+  if(L.clanSats!=null) le.clanSats = L.clanSats;   // sats du clan (ta part = le.sats)
+  if(L.share!=null)   le.share   = L.share;        // ton % de TH du clan
+  if(L.src)           le.src     = L.src;          // 'leaderboard' (perf) ou 'deposit' (repli)
+  le.baseTrusted = !!L.baseTrusted;
   // N'écrase un etat-live.json manuel que s'il concerne un AUTRE cycle, ou s'il était déjà auto.
   if(!liveEtat || liveEtat._auto || liveEtat.cycle!==cyc) liveEtat = le;
   ecrire("liveAuto", le);

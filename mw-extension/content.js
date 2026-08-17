@@ -49,15 +49,30 @@
     if (S.botGmt != null) { const b = +S.botGmt; if (!isNaN(b)) L.botGmt = b; }
     L.leagueId = g(S.pos, 'leagueId'); if (L.leagueId == null && S.roster) L.leagueId = S.roster.lg;
     L.rank = g(S.pos, 'clanRank'); L.userRank = g(S.pos, 'userRank');
-    // get-total-reward-by-user = totaux DU CYCLE COURANT (confirmé : matche l'écran MY REWARDS du jeu, cycle 156).
-    const btcNow = g(S.total, 'depositBtc'), fundNow = g(S.total, 'depositGmtFund'), ownNow = g(S.total, 'depositGmtFundOwner');
-    L.sats = btcNow != null ? Math.round(+btcNow * 1e8) : null;   // récompense sats du cycle
-    L.gmt  = fundNow != null ? +fundNow : null;                   // récompense GMT du cycle (part owner incluse)
+    // Récompense DU CYCLE = LEADERBOARDS (ce que le jeu affiche = ta vraie perf). Formules confirmées :
+    //   GMT perso = gmtFund × mesBlocs / blocsTotaux ; sats clan = btcFund × mesBlocs / blocsTotaux ; ta part = × (taPuissance / puissanceClan).
+    const ownNow = g(S.total, 'depositGmtFundOwner');
     L.gmtOwner = ownNow != null ? +ownNow : null;
-    L.satsCum = L.sats; L.gmtCum = L.gmt; L.baseTrusted = true;   // (rétrocompat affichage)
-    // Blocs du cycle courant = Σ multiplicateurs des blocs rewards-by-user de ce cycle.
+    L.netDepositSats = g(S.total, 'depositBtc') != null ? Math.round(g(S.total, 'depositBtc') * 1e8) : null;   // MY REWARDS (net après frais — info)
+    L.netDepositGmt  = g(S.total, 'depositGmtFund') != null ? +g(S.total, 'depositGmtFund') : null;
     let bl = 0; if (S.rewardsAll && S.nowCy != null) { for (const k in S.rewardsAll) { const r = S.rewardsAll[k]; if (r && r.cy === S.nowCy && r.m != null) bl += r.m; } }
-    L.blocs = bl > 0 ? bl : null;
+    const ulb = S.sampleUserLb, clb = S.sampleClanLb, me = ulb && ulb.me;
+    const totB = (ulb && +ulb.totalMinedBlocks) || (clb && +clb.totalMinedBlocks) || 0;
+    const myBlocks = me ? (+me.blocksMined || 0) : 0;
+    if (totB > 0 && myBlocks > 0) {
+      const gmtFund = (ulb && +ulb.gmtFund) || 0, btcFund = (clb && +clb.btcFund) || 0;
+      const myPower = (me && +me.nftPower) || 0, clanPower = (S.clan && +S.clan.power) || myPower;
+      const share = clanPower > 0 ? Math.min(1, myPower / clanPower) : 1;
+      L.gmt = gmtFund * myBlocks / totB;                          // ta part du fonds GMT (= 88.50)
+      L.clanSats = Math.round(btcFund * myBlocks / totB * 1e8);   // sats du clan pour tes blocs (= 196202)
+      L.sats = Math.round(L.clanSats * share);                    // ta part selon ton % de TH
+      L.share = Math.round(share * 100);
+      L.blocs = myBlocks;                                         // Σmult
+      L.src = 'leaderboard';
+    } else {                                                       // repli si leaderboard pas chargé
+      L.sats = L.netDepositSats; L.gmt = L.netDepositGmt; L.blocs = bl > 0 ? bl : null; L.src = 'deposit';
+    }
+    L.satsCum = L.sats; L.gmtCum = L.gmt; L.baseTrusted = true;
     S.live = L;
   }
 
