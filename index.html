@@ -967,7 +967,7 @@ function ouvrirForm(type, id){
     html += `</details>`;
   }
   else if(type==="payout"){
-    html += `<small class="muted">${ic('info',13)} <b>Entre le net que tu as vraiment fait ce cycle</b> (le dépôt reçu au payout). L'app en retire ensuite le coût du bot. C'est le seul chiffre vraiment fiable — l'app ne peut pas le deviner (tu vides ton wallet, les frais sont cachés).</small>`;
+    html += `<small class="muted">${ic('info',13)} <b>Entre le solde GMT de ton wallet juste après le payout, avant de le vider.</b> Comme tu vides à chaque semaine, ce solde = ton dépôt du cycle. L'app en retire le coût du bot pour donner ton net.</small>`;
     // Sélecteur explicite du cycle payé (décorrèle de la date de saisie).
     const _curP = debutCycle(new Date());
     const _derivedKey = e ? (()=>{ const dd=debutCycle(new Date(e.date)); dd.setUTCDate(dd.getUTCDate()-7); return cleCycle(dd); })() : null;
@@ -981,9 +981,9 @@ function ouvrirForm(type, id){
       _cycOpts += `<option value="${k}" ${k===_wantKey?'selected':''}>${lbl}${tag}</option>`;
     }
     html += champ("Ce payout paie la semaine", `<select id="f_pcycle">${_cycOpts}</select>`);
-    html += champ("💰 Net reçu ce cycle (USD) — le dépôt du payout", `<input type="number" inputmode="decimal" step="0.01" id="f_pnetusd" placeholder="ex. 20" value="${e&&e.netUsdCycle!=null? e.netUsdCycle : ''}">`);
+    html += champ("💰 Solde GMT du wallet APRÈS le payout (avant de vider)", `<input type="number" inputmode="decimal" step="0.01" id="f_psolde" placeholder="ex. 154.57" value="${e&&e.soldeWalletGmt!=null? e.soldeWalletGmt : ''}">`);
     html += `<details class="detail"><summary>${trLit('Optionnel','Optional')}</summary>`;
-    html += champ("Solde GMT du wallet APRÈS le payout (tout reçu)", `<input type="number" inputmode="decimal" step="0.01" id="f_psolde" placeholder="ex. 112.20" value="${e&&e.soldeWalletGmt!=null? e.soldeWalletGmt : ''}">`);
+    html += champ("Net reçu ce cycle (USD) — si tu préfères en $", `<input type="number" inputmode="decimal" step="0.01" id="f_pnetusd" placeholder="ex. 20" value="${e&&e.netUsdCycle!=null? e.netUsdCycle : ''}">`);
     html += champ("Achats de TH ce cycle (GMT — optionnel, 0 pendant les tests)", `<input type="number" inputmode="decimal" step="0.01" id="f_pthachat" placeholder="0" value="${e&&e.thAchatGmt!=null? e.thAchatGmt : ''}">`);
     html += `</details>`;
   }
@@ -1287,10 +1287,15 @@ function statsCycle(debut){
   //   → ces méthodes donnaient 0 (04 août) ou des chiffres absurdes (-27 en projection). Elles ne reviennent plus.
   const _payoutNetUsd = payouts.filter(p=> p.netUsdCycle!=null).sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
   const _payoutNet    = payouts.filter(p=> p.netGmtCycle!=null).sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
-  if(_payoutNetUsd){                                 // dépôt saisi en USD (le plus simple pour toi)
+  const _payoutSolde  = payouts.filter(p=> p.soldeWalletGmt!=null).sort((a,b)=> new Date(b.date)-new Date(a.date))[0];
+  if(_payoutSolde){                                  // PRINCIPAL : GMT dans le wallet APRÈS payout = le dépôt (wallet vidé avant → départ ≈ 0)
+    soldeFin = +_payoutSolde.soldeWalletGmt;
+    netReelGmt = soldeFin + thAchatGmt;
+    netReelUSD = netReelGmt * pxGmt; netSrc = 'solde';
+  } else if(_payoutNetUsd){                          // sinon : net saisi en USD
     netReelUSD = (+_payoutNetUsd.netUsdCycle) + thAchatGmt*pxGmt;
     netReelGmt = pxGmt>0 ? netReelUSD/pxGmt : null; netSrc = 'saisi';
-  } else if(_payoutNet){                             // dépôt saisi en GMT
+  } else if(_payoutNet){                             // sinon : net saisi en GMT
     netReelGmt = (+_payoutNet.netGmtCycle) + thAchatGmt;
     netReelUSD = netReelGmt * pxGmt; netSrc = 'saisi';
   }
@@ -1607,7 +1612,7 @@ function renderStripCycle(s, prev){
     </div>
     ${s.netReel ? (s.netSrc==='saisi'
       ? `<small class="muted" style="display:block;margin-top:8px">${ic('check',12)} <b style="color:var(--green)">Net réel saisi</b> : <b>${fmtNum(s.netReelGmt,1)} GMT</b> (${fmtUSD(s.netAbsoluUSD)})${s.thAchatGmt>0?` · dont ${fmtNum(s.thAchatGmt,1)} achats TH`:''} — dépôt du payout, frais inclus.</small>`
-      : `<small class="muted" style="display:block;margin-top:8px">${ic('check',12)} <b style="color:var(--green)">Net réel</b> au payout : avant ${fmtNum(s.soldeDebut,1)} → après ${fmtNum(s.soldeFin,1)} GMT${s.thAchatGmt>0?` (+ ${fmtNum(s.thAchatGmt,1)} achats TH)`:''} = <b>${s.netReelGmt>=0?'+':''}${fmtNum(s.netReelGmt,1)} GMT</b> — dépôt de la semaine (frais inclus).</small>`) : ''}
+      : `<small class="muted" style="display:block;margin-top:8px">${ic('check',12)} <b style="color:var(--green)">Net réel</b> : dépôt <b>${fmtNum(s.soldeFin,1)} GMT</b> (solde du wallet après payout, avant de vider)${s.thAchatGmt>0?` + ${fmtNum(s.thAchatGmt,1)} achats TH`:''} − spells = <b>${fmtUSD(s.netAbsoluUSD)}</b>.</small>`) : ''}
     ${!s.netReel && s.projSrc ? `<small class="muted" style="display:block;margin-top:8px">${ic('info',12)} <b>Projection ~${fmtUSD(s.netAbsoluUSD)}</b> ${s.projSrc==='projection'?`— basée sur ton dernier net réel × ta perf de blocs de ce cycle (projetée sur 7 j)`:`— prorata de ton dernier net réel`}. Le vrai chiffre = solde avant/après au payout.</small>` : ''}
     ${!s.aPayout && !s.netReel && s.feeDiag ? renderFeeDiag(s.feeDiag) : ''}
     ${(s.rankBtc!=null||s.rankGmt!=null) ? `<small class="muted" style="display:block;margin-top:8px">Rang du clan : ${s.rankBtc!=null?`BTC <b>#${s.rankBtc}</b>`:''}${(s.rankBtc!=null&&s.rankGmt!=null)?' · ':''}${s.rankGmt!=null?`GMT <b>#${s.rankGmt}</b>`:''}</small>` : ''}
