@@ -131,6 +131,8 @@
           }
         }
       }
+      else if (url.includes('clan-leaderboard/index')) { S.sampleClanLb = d; }   // clan : blocs + BTC du cycle + ma part (powerShare)
+      else if (url.includes('user-leaderboard/index')) { S.sampleUserLb = d; }   // perso : mes blocs + GMT du cycle
       else if (url.includes('rewards-by-user')) {   // historique de TES blocs gagnés (par cycle + multiplicateur + sats) → auto-log
         if (!S.sampleRewards) S.sampleRewards = d;
         const arr = (d && d.array) || [];
@@ -287,7 +289,7 @@
       else el.innerHTML = 'Impossible de lire le jeton.';
     };
     const bp = box.querySelector('#mwperso'); if (bp) bp.onclick = () => {
-      const j = JSON.stringify({ total: S.total, pos: S.pos, botGmt: S.botGmt, gmtPrice: S.gmtPrice, live: S.live, myId: S.myId, nowCy: S.nowCy, seenUrls: S.seenUrls, sampleRound: S.sampleRound, sampleMyRound: S.sampleMyRound, sampleUserRound: S.sampleUserRound, lastRoundKeys: S.lastRoundKeys, sampleRewards: S.sampleRewards, rewardsUrl: S.rewardsUrl }, null, 2);
+      const j = JSON.stringify({ total: S.total, pos: S.pos, botGmt: S.botGmt, gmtPrice: S.gmtPrice, live: S.live, myId: S.myId, nowCy: S.nowCy, seenUrls: S.seenUrls, sampleRound: S.sampleRound, sampleMyRound: S.sampleMyRound, sampleUserRound: S.sampleUserRound, lastRoundKeys: S.lastRoundKeys, sampleRewards: S.sampleRewards, sampleClanLb: S.sampleClanLb, sampleUserLb: S.sampleUserLb }, null, 2);
       const done = () => { bp.textContent = '✅ copié — colle dans le chat'; };
       try { navigator.clipboard.writeText(j).then(done).catch(() => { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }); }
       catch (e) { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }
