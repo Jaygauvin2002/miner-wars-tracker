@@ -703,6 +703,7 @@ let config  = lire("config", { thTotal:0, eeMoyenne:0, league:"", budgetBotCycle
 let prix    = lire("prices", null);   // { ts, gomining, bitcoin }  (en USD)
 let liveEtat = null;                  // override poussé par Claude (etat-live.json) pour le cycle en cours
 let AUTO_BLOCKS = (()=>{ try{ return JSON.parse(localStorage.getItem('mw_autoBlocks')||'{}'); }catch(e){ return {}; } })();  // {cleCycle: {summult,n,sats}} — blocs auto captés par l'extension (rewards-by-user)
+let AVG_FEE = lire("avgFee", 0);      // frais RÉELS moyens par cycle (gains − net des cycles payés) — pour estimer le cycle en cours
 let LANG = lire("lang", "fr");        // langue de l'interface : "fr" (défaut) ou "en"
 let filtreHist = "all";
 let filtrePeriode = "cycle";          // toggle des Graphiques : cycle | prevcycle | month | 3months
@@ -1254,29 +1255,15 @@ function statsCycle(debut){
   const _roundTH = (live && live.roundTH!=null) ? live.roundTH : (etat && etat.roundTH!=null ? etat.roundTH : 0);
   const serviceEstim = (_roundTH>0 && _sumMult>0) ? 0.0089 * 7 * _roundTH * _sumMult / 2066
     : (_lastPay ? (+_lastPay.serviceUSD||0) * _jours/7 : 0);
-  const feeEstim = elecEstim + serviceEstim;
+  // Estimation des frais du cycle EN COURS = moyenne de tes frais RÉELS passés (gains − net des cycles payés), proratisée.
+  //   La formule élec/service (elecEstim+serviceEstim) surestimait massivement (rejetée par le user) → on se cale sur ta réalité.
+  const _maintFloor = _th>0 ? _th*0.0089*7 : 0;                 // plancher maintenance si aucun historique
+  const feeEstim = (AVG_FEE>0 ? AVG_FEE : _maintFloor) * (_jours/7);
   const feeUSD = payoutFeeUSD>0 ? payoutFeeUSD : (aPayout ? 0 : feeEstim);  // frais réels saisis > 0 priment
   const feeSaisi = !aPayout && payoutFeeUSD<=0 && feeEstim>0;
   const feeSrc = null;
   // Diagnostic des frais : quel input est présent / manquant (surface le "pourquoi c'est bas").
-  const _elecOk = (_th>0 && kwhEst>0 && eeEst>0);
-  const _servOk = (_roundTH>0 && _sumMult>0);
-  const feeDiag = {
-    th:_th, kwh:kwhEst, ee:eeEst, roundTH:_roundTH, sumMult:_sumMult, jours:_jours,
-    elec:elecEstim, service:serviceEstim, aPayout,
-    elecSrc: _elecOk ? 'formule' : ((_lastPay && _lastPay.elecUSD!=null) ? 'dernier payout' : 'aucune donnée'),
-    servSrc: _servOk ? 'formule' : (_lastPay ? 'dernier payout' : 'aucune donnée'),
-    manque: []
-  };
-  if(!_elecOk){
-    if(!(_th>0))    feeDiag.manque.push("Ma puissance TH (Journée)");
-    if(!(kwhEst>0)) feeDiag.manque.push("Tarif $/kWh (Réglages)");
-    if(!(eeEst>0))  feeDiag.manque.push("W/TH ligue (Journée du cycle courant)");
-  }
-  if(!_servOk){
-    if(!(_roundTH>0)) feeDiag.manque.push("TH total du round (Journée)");
-    if(!(_sumMult>0)) feeDiag.manque.push("blocs gagnés");
-  }
+  const feeDiag = { estim: feeUSD, jours: _jours, fromHist: AVG_FEE>0, nPaid: 0, aPayout };
   const opexUSD = feeUSD;                             // (conservé sous ce nom pour l'export)
   // NET RÉEL = le SAUT de solde AU payout : solde APRÈS − solde AVANT (le relevé juste avant).
   // Robuste même si le user vide son wallet en semaine (achats TH, retraits) : on ne regarde que le dépôt du payout.
@@ -1510,12 +1497,16 @@ function renderDashboard(){
   const c = document.getElementById("dashContent");
   if(!entries.length){ c.innerHTML = renderOnboarding(); return; }
   const debut = debutCycle(new Date());
+  // Frais RÉELS moyens (gains − net des cycles PAYÉS) → sert à estimer les frais du cycle en cours (bien mieux que la formule).
+  let cyc = tousLesCycles();
+  const _fees = cyc.filter(c2=>c2.s.netReel).map(c2=>Math.max(0, c2.s.gainsUSD - c2.s.netAbsoluUSD - c2.s.depUSD)).filter(f=>f>0.01);
+  const _newAvg = _fees.length ? _fees.reduce((a,b)=>a+b,0)/_fees.length : 0;
+  if(_newAvg>0 && Math.abs(_newAvg-AVG_FEE)>0.01){ AVG_FEE=_newAvg; ecrire("avgFee",AVG_FEE); cyc = tousLesCycles(); }
   const s = statsCycle(debut);
   const finTxt = fmtDateUTC(finCycle(debut),{day:"2-digit",month:"short"});
   const debTxt = fmtDateUTC(debut,{day:"2-digit",month:"short"});
 
   // Cycle précédent (pour les deltas ▲/▼)
-  const cyc = tousLesCycles();
   const idx = cyc.findIndex(c2=>c2.key===cleCycle(debut));
   const prev = idx>0 ? cyc[idx-1].s : null;
 
@@ -1569,25 +1560,10 @@ function renderLiveAuto(debut){
 /* Strip "CE CYCLE" : 4 tuiles primaires + chip streak. Budget en barre de progression. */
 // Diagnostic des frais : montre quel input alimente (ou bloque) le calcul élec./service.
 function renderFeeDiag(d){
-  const dot = (ok,label,val)=>`<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${ok?'rgba(52,199,89,.14)':'rgba(255,69,58,.14)'};color:${ok?'var(--green)':'var(--red)'};font-size:.72rem;font-weight:600;white-space:nowrap">${ok?ic('check',11):ic('warn',11)} ${label}${(val!=null&&val!=='')?` ${val}`:''}</span>`;
-  const rows = `
-    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px">
-      <b style="font-size:.74rem;min-width:64px;color:var(--muted)">Électricité</b>
-      ${dot(d.th>0,'TH', d.th>0?fmtNum(d.th,0):'—')}
-      ${dot(d.ee>0,'W/TH', d.ee>0?d.ee:'—')}
-      ${dot(d.kwh>0,'$/kWh', d.kwh>0?(+d.kwh).toFixed(3):'—')}
-      <span style="margin-left:auto;font-weight:700;white-space:nowrap">${fmtUSD(d.elec)} <small class="muted" style="font-weight:500">(${d.elecSrc})</small></span>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px">
-      <b style="font-size:.74rem;min-width:64px;color:var(--muted)">Service</b>
-      ${dot(d.roundTH>0,'TH round', d.roundTH>0?fmtNum(d.roundTH,0):'—')}
-      ${dot(d.sumMult>0,'blocs', d.sumMult>0?d.sumMult:'—')}
-      <span style="margin-left:auto;font-weight:700;white-space:nowrap">${fmtUSD(d.service)} <small class="muted" style="font-weight:500">(${d.servSrc})</small></span>
-    </div>`;
-  const alerte = d.manque.length
-    ? `<div style="margin-top:9px;padding:7px 10px;border-radius:8px;background:rgba(255,159,10,.13);color:var(--accent);font-size:.78rem;font-weight:600;line-height:1.4">${ic('warn',12)} Input manquant : ${d.manque.join(' · ')}</div>`
-    : `<div style="margin-top:9px;font-size:.76rem;color:var(--green)">${ic('check',12)} Tous les inputs sont présents — estimation par formule active.</div>`;
-  return `<details style="margin-top:10px"${d.manque.length?' open':''}><summary style="cursor:pointer;font-size:.8rem;color:var(--muted);user-select:none">Détail des frais estimés — ${fmtUSD(d.elec+d.service)} sur ${d.jours} j</summary>${rows}${alerte}</details>`;
+  const msg = d.fromHist
+    ? trLit("Estimés d'après tes cycles payés (moyenne de tes frais réels). Le vrai chiffre se fige au payout du mardi.","Estimated from your paid cycles (average of your real fees). The real figure locks at Tuesday's payout.")
+    : trLit("Plancher maintenance (pas encore de cycle payé comme référence). Le vrai chiffre se fige au payout.","Maintenance floor (no paid cycle as a reference yet). The real figure locks at payout.");
+  return `<details style="margin-top:10px"><summary style="cursor:pointer;font-size:.8rem;color:var(--muted);user-select:none">${trLit('Frais estim\u00e9s','Estimated fees')} \u2014 ${fmtUSD(d.estim)} \u00b7 ${d.jours} j</summary><div style="margin-top:8px;font-size:.78rem;color:var(--muted);line-height:1.45">${msg}</div></details>`;
 }
 function renderStripCycle(s, prev){
   const { streak, faitAuj } = calcStreakService();
