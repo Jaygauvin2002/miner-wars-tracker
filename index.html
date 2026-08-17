@@ -702,6 +702,7 @@ let entries = lire("entries", []);
 let config  = lire("config", { thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null, opexQuotidien:0, elecKwh:0 });
 let prix    = lire("prices", null);   // { ts, gomining, bitcoin }  (en USD)
 let liveEtat = null;                  // override poussé par Claude (etat-live.json) pour le cycle en cours
+let AUTO_BLOCKS = (()=>{ try{ return JSON.parse(localStorage.getItem('mw_autoBlocks')||'{}'); }catch(e){ return {}; } })();  // {cleCycle: {summult,n,sats}} — blocs auto captés par l'extension (rewards-by-user)
 let LANG = lire("lang", "fr");        // langue de l'interface : "fr" (défaut) ou "en"
 let filtreHist = "all";
 let filtrePeriode = "cycle";          // toggle des Graphiques : cycle | prevcycle | month | 3months
@@ -1311,8 +1312,10 @@ function statsCycle(debut){
 
   const nbBlocs   = blocs.length;
   // Compte de blocs AFFICHÉ = TOUJOURS la somme des multiplicateurs (un x4 = 4), jamais le nb d'entrées.
+  // Source auto (extension rewards-by-user) prioritaire, mais jamais sous le manuel (max) pour ne pas sous-compter.
   const loggedMult = blocs.reduce((a,b)=>a+(b.multiplicateur||0),0);
-  const blocsAff   = Math.max(loggedMult, (etat && etat.blocs!=null) ? etat.blocs : 0);
+  const _autoB = (AUTO_BLOCKS && AUTO_BLOCKS[cleCycle(debut)]) || null;
+  const blocsAff   = Math.max(loggedMult, (etat && etat.blocs!=null) ? etat.blocs : 0, (_autoB && _autoB.summult) ? _autoB.summult : 0);
   const satsMoy   = nbBlocs ? satsBlocs/nbBlocs : 0;
   const gmtBlocMoy= nbBlocs ? gmtBlocs/nbBlocs : 0;
   const coutGmtParBloc = nbBlocs ? depGmt/nbBlocs : 0;
@@ -2210,9 +2213,18 @@ function autoImportSpy(){
     __mwLastRaw=raw;
     ecrire("clans", computeSpy(parsed));
     ecrire("clansAutoAt", Date.now());
+    if(parsed.rewardsAll){ AUTO_BLOCKS = aggAutoBlocks(parsed.rewardsAll); try{ localStorage.setItem('mw_autoBlocks', JSON.stringify(AUTO_BLOCKS)); }catch(e){} }
     appliquerLiveSpy(parsed.live);
     if(typeof ongletCourant==='function' && ongletCourant()==='clans') remplirClans();
   }catch(e){}
+}
+// Agrège les blocs auto (rewards-by-user) par cycle du tracker (clé = mardi UTC du endedAt de chaque bloc).
+function aggAutoBlocks(rw){
+  const out={};
+  Object.keys(rw||{}).forEach(k=>{ const b=rw[k]; if(!b||b.m==null||!b.e) return;
+    const ck=cleCycle(b.e); const o=out[ck]||(out[ck]={summult:0,n:0,sats:0,hasBtc:false});
+    o.summult+=(+b.m||0); o.n++; if(b.b!=null){ o.sats+=Math.round((+b.b)*1e8); o.hasBtc=true; } });
+  return out;
 }
 // Branche l'état PERSO capté (récompenses/rang/solde bot/prix) sur le cycle COURANT du tracker.
 function appliquerLiveSpy(L){

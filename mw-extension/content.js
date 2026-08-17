@@ -10,7 +10,7 @@
     abil: {}, clanNames: {}, agg: {},
     byMultLg: {}, spLg: {}, durLg: {}, lgMax: {}, clanCyc: {},
     seen: {}, cyc: {}, nSeen: 0, nowCy: null, roster: null, recipe: null, updated: null,
-    rewardBase: {}   // {cycleId: {btc,fund,own,at,trusted}} — cumul figé au début de chaque cycle (survit aux resets)
+    rewardsAll: {}   // {roundId: {m:mult, e:endedAt, b:btcValue, cy:cycleId, lg}} — tes blocs gagnés (auto-log), survit aux resets
   };
   try { const o = JSON.parse(localStorage.getItem(LS) || 'null'); if (o) S = Object.assign(S, o); } catch (e) {}
   if (S.sv6 !== 7) { S.agg = {}; S.byMultLg = {}; S.spLg = {}; S.durLg = {}; S.lgMax = {}; S.clanCyc = {}; S.seen = {}; S.cyc = {}; S.nSeen = 0; S.sv6 = 7; try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} } // remise à zéro demandée
@@ -49,22 +49,15 @@
     if (S.botGmt != null) { const b = +S.botGmt; if (!isNaN(b)) L.botGmt = b; }
     L.leagueId = g(S.pos, 'leagueId'); if (L.leagueId == null && S.roster) L.leagueId = S.roster.lg;
     L.rank = g(S.pos, 'clanRank'); L.userRank = g(S.pos, 'userRank');
+    // get-total-reward-by-user = totaux DU CYCLE COURANT (confirmé : matche l'écran MY REWARDS du jeu, cycle 156).
     const btcNow = g(S.total, 'depositBtc'), fundNow = g(S.total, 'depositGmtFund'), ownNow = g(S.total, 'depositGmtFundOwner');
-    L.satsCum = btcNow != null ? Math.round(+btcNow * 1e8) : null;   // cumul (info)
-    L.gmtCum = fundNow != null ? +fundNow : null;                    // cumul (info)
+    L.sats = btcNow != null ? Math.round(+btcNow * 1e8) : null;   // récompense sats du cycle
+    L.gmt  = fundNow != null ? +fundNow : null;                   // récompense GMT du cycle (part owner incluse)
     L.gmtOwner = ownNow != null ? +ownNow : null;
-    // Baseline par cycle : on fige le cumul la 1re fois qu'on voit ce cycleId. trusted = on surveillait déjà le cycle
-    // précédent (donc capté près du démarrage → diff fiable). Sinon (1re install en cours de cycle) : non fiable.
-    S.rewardBase = S.rewardBase || {};
-    const cy = S.nowCy;
-    if (cy != null && btcNow != null && fundNow != null && !S.rewardBase[cy]) {
-      S.rewardBase[cy] = { btc: +btcNow, fund: +fundNow, own: ownNow != null ? +ownNow : 0, at: S.updated || null, trusted: !!S.rewardBase[cy - 1] };
-    }
-    const base = (cy != null) ? S.rewardBase[cy] : null;
-    L.baseAt = base ? base.at : null; L.baseTrusted = base ? !!base.trusted : false;
-    L.sats = (base && base.trusted && btcNow != null) ? Math.round((+btcNow - base.btc) * 1e8) : null;   // récompense DU CYCLE
-    L.gmt = (base && base.trusted && fundNow != null) ? (+fundNow - base.fund) : null;                   // récompense DU CYCLE
-    L.blocs = null;   // nb de blocs non exposé par ces endpoints → reste manuel
+    L.satsCum = L.sats; L.gmtCum = L.gmt; L.baseTrusted = true;   // (rétrocompat affichage)
+    // Blocs du cycle courant = Σ multiplicateurs des blocs rewards-by-user de ce cycle.
+    let bl = 0; if (S.rewardsAll && S.nowCy != null) { for (const k in S.rewardsAll) { const r = S.rewardsAll[k]; if (r && r.cy === S.nowCy && r.m != null) bl += r.m; } }
+    L.blocs = bl > 0 ? bl : null;
     S.live = L;
   }
 
@@ -138,7 +131,12 @@
           }
         }
       }
-      else if (url.includes('rewards-by-user')) { if (!S.sampleRewards) S.sampleRewards = d; S.rewardsUrl = url; }   // historique des blocs gagnés (par cycle + multiplicateur) → à mapper pour l'auto-log
+      else if (url.includes('rewards-by-user')) {   // historique de TES blocs gagnés (par cycle + multiplicateur + sats) → auto-log
+        if (!S.sampleRewards) S.sampleRewards = d;
+        const arr = (d && d.array) || [];
+        S.rewardsAll = S.rewardsAll || {};
+        arr.forEach(b => { if (b && b.roundId != null) S.rewardsAll[b.roundId] = { m: b.multiplier, e: b.endedAt || b.startedAt, b: b.btcValue, cy: b.cycleId, lg: b.leagueId }; });
+      }
       else return;
       S.updated = new Date().toISOString(); save(); render();
     } catch (e) {}
