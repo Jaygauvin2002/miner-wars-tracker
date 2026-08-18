@@ -704,6 +704,7 @@ let prix    = lire("prices", null);   // { ts, gomining, bitcoin }  (en USD)
 let liveEtat = null;                  // override poussé par Claude (etat-live.json) pour le cycle en cours
 let AUTO_BLOCKS = (()=>{ try{ return JSON.parse(localStorage.getItem('mw_autoBlocks')||'{}'); }catch(e){ return {}; } })();  // {cleCycle: {summult,n,sats}} — blocs auto captés par l'extension (rewards-by-user)
 let AVG_FEE = lire("avgFee", 0);      // frais RÉELS moyens par cycle (gains − net des cycles payés) — pour estimer le cycle en cours
+let CYCLE_LIVE = (()=>{ try{ return JSON.parse(localStorage.getItem('mw_cycleLive')||'{}'); }catch(e){ return {}; } })();  // {cleCycle: reward live mémorisé} — survit à la bascule
 let LANG = lire("lang", "fr");        // langue de l'interface : "fr" (défaut) ou "en"
 let filtreHist = "all";
 let filtrePeriode = "cycle";          // toggle des Graphiques : cycle | prevcycle | month | 3months
@@ -1176,7 +1177,7 @@ function statsCycle(debut){
   // -> on n'additionne JAMAIS blocs + payout (sinon double comptage).
   const aPayoutLocal = payouts.length > 0;
   // Override "live" poussé par Claude (fichier etat-live.json) : écrase les chiffres du cycle courant.
-  const live = (liveEtat && liveEtat.cycle === cleCycle(debut)) ? liveEtat : null;
+  const live = CYCLE_LIVE[cleCycle(debut)] || ((liveEtat && liveEtat.cycle === cleCycle(debut)) ? liveEtat : null);
   const livePay = (live && live.payout) ? live.payout : null;  // payout final poussé (mardi) = vérité-terrain
   // aPayout (cycle réglé côté gains) est défini APRÈS le calcul des gains (dépend de hasGainsPayout).
   // État du jeu : total autoritaire recopié depuis Miner Wars, saisi sur la Journée (service quotidien).
@@ -2192,7 +2193,7 @@ function autoImportSpy(){
     ecrire("clans", computeSpy(parsed));
     ecrire("clansAutoAt", Date.now());
     if(parsed.rewardsAll){ AUTO_BLOCKS = aggAutoBlocks(parsed.rewardsAll); try{ localStorage.setItem('mw_autoBlocks', JSON.stringify(AUTO_BLOCKS)); }catch(e){} }
-    appliquerLiveSpy(parsed.live);
+    appliquerLiveSpy(parsed.live, parsed.rewardsAll);
     if(typeof ongletCourant==='function' && ongletCourant()==='clans') remplirClans();
   }catch(e){}
 }
@@ -2204,12 +2205,17 @@ function aggAutoBlocks(rw){
     o.summult+=(+b.m||0); o.n++; if(b.b!=null){ o.sats+=Math.round((+b.b)*1e8); o.hasBtc=true; } });
   return out;
 }
-// Branche l'état PERSO capté (récompenses/rang/solde bot/prix) sur le cycle COURANT du tracker.
-function appliquerLiveSpy(L){
+// Branche l'état PERSO capté sur LE BON cycle (celui des blocs, pas la date du jour) et le MÉMORISE par cycle
+// (CYCLE_LIVE) → survit à la bascule du mardi (avant : à la bascule, les gains sautaient au nouveau cycle).
+function appliquerLiveSpy(L, rewardsAll){
   if(!L) return;
-  const cyc = cleCycle(new Date());
-  const le = { cycle: cyc, _auto:true, _at: L.at||null };
-  if(L.gmt!=null)    le.gmt   = L.gmt;      // récompense DU CYCLE (cumul − baseline), null si pas encore fiable
+  // Clé de cycle = date réelle des blocs du cycle capté (via cycleId), sinon aujourd'hui (nouveau cycle sans bloc).
+  let ck = cleCycle(new Date());
+  if(L.cycleId!=null && rewardsAll){
+    for(const k in rewardsAll){ const b=rewardsAll[k]; if(b && b.cy===L.cycleId && b.e){ ck=cleCycle(b.e); break; } }
+  }
+  const le = { cycle: ck, _auto:true, _at: L.at||null, cycleId: L.cycleId };
+  if(L.gmt!=null)    le.gmt   = L.gmt;
   if(L.sats!=null)   le.sats  = L.sats;
   if(L.blocs!=null)  le.blocs = L.blocs;
   if(L.pxGmt!=null)  le.pxGmt = L.pxGmt;
@@ -2219,12 +2225,14 @@ function appliquerLiveSpy(L){
   if(L.userRank!=null) le.userRank = L.userRank;
   if(L.gmtCum!=null)  le.gmtCum  = L.gmtCum;
   if(L.satsCum!=null) le.satsCum = L.satsCum;
-  if(L.clanSats!=null) le.clanSats = L.clanSats;   // sats du clan (ta part = le.sats)
-  if(L.share!=null)   le.share   = L.share;        // ton % de TH du clan
-  if(L.src)           le.src     = L.src;          // 'leaderboard' (perf) ou 'deposit' (repli)
+  if(L.clanSats!=null) le.clanSats = L.clanSats;
+  if(L.share!=null)   le.share   = L.share;
+  if(L.src)           le.src     = L.src;
   le.baseTrusted = !!L.baseTrusted;
-  // N'écrase un etat-live.json manuel que s'il concerne un AUTRE cycle, ou s'il était déjà auto.
-  if(!liveEtat || liveEtat._auto || liveEtat.cycle!==cyc) liveEtat = le;
+  // Mémorise par cycle (le cycle passé garde ses gains même après la bascule).
+  CYCLE_LIVE[ck] = le;
+  try{ localStorage.setItem('mw_cycleLive', JSON.stringify(CYCLE_LIVE)); }catch(e){}
+  if(!liveEtat || liveEtat._auto || liveEtat.cycle!==ck) liveEtat = le;
   ecrire("liveAuto", le);
   if(typeof renderDashboard==='function' && !document.getElementById("tab-dashboard").classList.contains("hidden")) renderDashboard();
 }
