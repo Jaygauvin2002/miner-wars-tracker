@@ -614,6 +614,8 @@
       </tr></thead><tbody id="spyTbody" data-noi18n></tbody></table></div>
     </div>
   </section>
+
+  <section id="tab-boost" class="hidden"><div id="boostContent"></div></section>
 </div>
 
 <!-- ======================= BARRE D'ONGLETS ======================= -->
@@ -623,6 +625,7 @@
   <button data-tab="graphiques" onclick="switchTab('graphiques')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>Graphiques</button>
   <button data-tab="historique" onclick="switchTab('historique')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Historique</button>
   <button data-tab="plan" onclick="switchTab('plan')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>Plan</button>
+  <button data-tab="boost" onclick="switchTab('boost')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Boost</button>
   <button data-tab="reglages" onclick="switchTab('reglages')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="2" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="22" y2="16"/></svg>Réglages</button>
   <button data-tab="clans" onclick="switchTab('clans')"><svg class="navico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>Clans</button>
 </nav>
@@ -699,7 +702,7 @@ function ecrire(cle, val){ localStorage.setItem("mw_" + cle, JSON.stringify(val)
 
 /* ---------- État global ---------- */
 let entries = lire("entries", []);
-let config  = lire("config", { thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null, opexQuotidien:0, elecKwh:0 });
+let config  = lire("config", { thTotal:0, eeMoyenne:0, league:"", budgetBotCycle:0, coingeckoId:"gmt-token", passiveCycleStart:null, opexQuotidien:0, elecKwh:0, budgetUnit:'gmt', budgetUsd:0, costClanPowerup:0, costTurbo:0 });
 let prix    = lire("prices", null);   // { ts, gomining, bitcoin }  (en USD)
 let liveEtat = null;                  // override poussé par Claude (etat-live.json) pour le cycle en cours
 let AUTO_BLOCKS = (()=>{ try{ return JSON.parse(localStorage.getItem('mw_autoBlocks')||'{}'); }catch(e){ return {}; } })();  // {cleCycle: {summult,n,sats}} — blocs auto captés par l'extension (rewards-by-user)
@@ -894,19 +897,113 @@ function appliquerLangue(){
 }
 function basculerLangue(){ LANG = (LANG==='en') ? 'fr' : 'en'; ecrire("lang", LANG); appliquerLangue(); }
 
+/* ==========================================================================
+   ONGLET BOOST — planificateur de stratégie de spells (budget + coûts → reco)
+   ========================================================================== */
+const BOOST_CONTEST = {1:13,2:26,4:51,8:70,16:83,32:90};   // % de rondes où le GAGNANT a boosté (Dune)
+const BOOST_PROBA   = {1:64,2:23,4:8.5,8:3,16:1.1,32:0.4}; // % de rondes à chaque multiplicateur
+function saveBoostConfig(){
+  const unitEl=document.getElementById('bstUnit'); const unit = unitEl? unitEl.value : (config.budgetUnit||'gmt');
+  config.budgetUnit = unit;
+  const bv = parseFloat((document.getElementById('bstBudget')||{}).value)||0;
+  if(unit==='usd') config.budgetUsd = bv; else config.budgetBotCycle = bv;
+  config.costClanPowerup = parseFloat((document.getElementById('bstCpu')||{}).value)||0;
+  config.costTurbo       = parseFloat((document.getElementById('bstTurbo')||{}).value)||0;
+  ecrire('config', config);
+  renderBoost();
+}
+function renderBoost(){
+  const host=document.getElementById('boostContent'); if(!host) return;
+  const pxGmt = (prix&&prix.gomining) ? prix.gomining : ((liveEtat&&liveEtat.pxGmt)||0);
+  const uUSD = v => fmtUSD(v);
+  // Valeur d'un éq. x1 (USD) + net passif moyen, depuis tes cycles.
+  const cy = tousLesCycles();
+  let gPay=0,wPay=0,gAll=0,wAll=0; const passNet=[];
+  cy.forEach(c=>{ const w=c.s.blocsAff||0; gAll+=c.s.gainsUSD; wAll+=w; if(c.s.aPayout||c.s.netReel){gPay+=c.s.gainsUSD;wPay+=w;} if((c.s.depGmt||0)<0.5 && (c.s.netReel||c.s.aPayout)) passNet.push(c.s.netAbsoluUSD); });
+  const valX1 = wPay>0?gPay/wPay:(wAll>0?gAll/wAll:0);
+  const avgPass = passNet.length? passNet.reduce((a,b)=>a+b,0)/passNet.length : null;
+  const unit = config.budgetUnit||'gmt';
+  const budgetGmt = unit==='usd' ? (pxGmt>0?(config.budgetUsd||0)/pxGmt:0) : (config.budgetBotCycle||0);
+  const budgetUsd = unit==='usd' ? (config.budgetUsd||0) : (config.budgetBotCycle||0)*pxGmt;
+  const costCPU = config.costClanPowerup||0, costTurbo = config.costTurbo||0;
+  const turboUsd = costTurbo*pxGmt, cpuUsd = costCPU*pxGmt;
+  const bval = unit==='usd' ? (config.budgetUsd||'') : (config.budgetBotCycle||'');
+
+  // --- Carte 1 : entrées ---
+  let html = `<div class="card"><span class="kicker">${trLit('Tes paramètres','Your parameters')}</span>
+    <p class="muted" style="margin:6px 0 12px;line-height:1.5">${trLit('Les coûts de spells varient selon TON TH et le TH du clan — entre-les tels que le jeu te les montre.','Spell costs vary with YOUR TH and the clan TH — enter them as the game shows you.')}</p>
+    <label>${trLit('Budget max de spells par cycle','Max spell budget per cycle')}</label>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="number" inputmode="decimal" id="bstBudget" value="${bval}" placeholder="${unit==='usd'?'100':'345'}" onchange="saveBoostConfig()" style="flex:1">
+      <select id="bstUnit" onchange="saveBoostConfig()"><option value="usd" ${unit==='usd'?'selected':''}>USD</option><option value="gmt" ${unit==='gmt'?'selected':''}>GMT</option></select>
+    </div>
+    <small class="muted">${pxGmt>0? (unit==='usd'? `≈ ${fmtNum(budgetGmt,0)} GMT` : `≈ ${uUSD(budgetUsd)}`) + ` (${trLit('GMT à','GMT at')} $${fmtNum(pxGmt,4)})` : trLit('prix GMT indisponible','GMT price unavailable')}</small>
+    <div class="two" style="margin-top:12px">
+      ${champ(trLit('Coût Clan Power-up (GMT / cast)','Clan Power-up cost (GMT / cast)'), `<input type="number" inputmode="decimal" id="bstCpu" value="${costCPU||''}" placeholder="0.30" onchange="saveBoostConfig()">`)}
+      ${champ(trLit('Coût Turbo / Power-up (GMT / cast)','Turbo / Power-up cost (GMT / cast)'), `<input type="number" inputmode="decimal" id="bstTurbo" value="${costTurbo||''}" placeholder="21" onchange="saveBoostConfig()">`)}
+    </div>
+    ${pxGmt>0 && (cpuUsd>0||turboUsd>0)?`<small class="muted">${trLit('En USD','In USD')} : Clan Power-up ${cpuUsd>0?uUSD(cpuUsd):'—'} · Turbo ${turboUsd>0?uUSD(turboUsd):'—'} / cast</small>`:''}
+  </div>`;
+
+  // --- Carte 2 : recommandation ---
+  if(!costTurbo && !costCPU){
+    html += `<div class="card"><div class="warn">${trLit('Entre le coût de ton Clan Power-up et de ton Turbo ci-dessus pour obtenir ta stratégie.','Enter your Clan Power-up and Turbo cost above to get your strategy.')}</div></div>`;
+  } else if(valX1<=0){
+    html += `<div class="card"><div class="warn">${trLit('Il faut au moins un cycle avec des gains (blocs + payout) pour estimer la valeur d\'un bloc.','Need at least one cycle with earnings (blocks + payout) to estimate a block\'s value.')}</div></div>`;
+  } else {
+    const nTurbo = costTurbo>0? Math.floor(budgetGmt/costTurbo) : 0;
+    const rows = [32,16,8,4,2,1].map(m=>{
+      const valUSD = valX1*m, contest = BOOST_CONTEST[m];
+      let verdict, col;
+      if(m===1){ verdict=trLit('Passe — gagné gratuitement, valeur minime','Skip — won free, tiny value'); col='var(--muted)'; }
+      else if(m<=4){
+        if(turboUsd>0 && valUSD < turboUsd){ verdict=trLit('Passe — un bloc vaut moins qu\'un cast Turbo','Skip — a block is worth less than a Turbo cast'); col='var(--muted)'; }
+        else { verdict=trLit(`Turbo peu rentable · Clan Power-up seulement si très bon marché (gagné sans boost ${100-contest}% du temps)`,`Turbo marginal · Clan Power-up only if very cheap (won without boost ${100-contest}% of the time)`); col='var(--muted)'; }
+      }
+      else { // x8/x16/x32
+        if(turboUsd>0 && valUSD>turboUsd){ verdict=trLit(`⭐ Turbo — grosse valeur, très contesté (${contest}%) → le boost décide`,`⭐ Turbo — high value, heavily contested (${contest}%) → boost decides`); col='var(--green)'; }
+        else { verdict=trLit('Turbo marginal (valeur ≈ coût du cast)','Turbo marginal (value ≈ cast cost)'); col='var(--accent)'; }
+      }
+      return `<tr><td>x${m}</td><td class="num">${contest}%</td><td class="num">${valX1>0?uUSD(valUSD):'—'}</td><td style="color:${col}">${verdict}</td></tr>`;
+    }).join('');
+    html += `<div class="card"><span class="kicker">${trLit('Ta stratégie recommandée','Your recommended strategy')}</span>
+      <div class="table-wrap"><table class="cyc" style="margin-top:8px">
+        <thead><tr><th>${trLit('Multi','Mult')}</th><th>${trLit('Contesté','Contested')}</th><th>${trLit('Valeur / bloc','Value / block')}</th><th>${trLit('Reco','Advice')}</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface2);line-height:1.55">
+        <b>${trLit('Ton plan','Your plan')} :</b> ${trLit(`avec ${fmtNum(budgetGmt,0)} GMT (${uUSD(budgetUsd)}) et un Turbo à ${fmtNum(costTurbo,1)} GMT, tu peux lancer ~<b>${nTurbo} Turbo</b> ce cycle.`,`with ${fmtNum(budgetGmt,0)} GMT (${uUSD(budgetUsd)}) and a Turbo at ${fmtNum(costTurbo,1)} GMT, you can fire ~<b>${nTurbo} Turbo</b> this cycle.`)}
+        ${trLit('Concentre-les sur les <b>x8 / x16 / x32</b> (plus haute valeur, boost décisif) — ces rondes sont rares, prends-les dès qu\'elles passent. <b>Évite</b> le x1 (gratuit) et l\'étalement de petits Clan Power-up sur x2/x4 (le test A a prouvé que ça perd).','Concentrate them on <b>x8 / x16 / x32</b> (highest value, boost decides) — these rounds are rare, grab them as they come. <b>Avoid</b> x1 (free) and spreading cheap Clan Power-ups on x2/x4 (test A proved it loses).')}
+      </div>
+      ${avgPass!=null?`<small class="muted" style="display:block;margin-top:10px">${trLit(`⚖️ Ton passif fait ≈ <b>${uUSD(avgPass)}</b> net/cycle. Ce budget coûte ≈ <b>${uUSD(budgetUsd)}</b> → pour battre le passif, le boost doit ajouter <b>plus de ${uUSD(budgetUsd)}</b> de blocs gagnés grâce à lui. Teste 1 cycle et compare le net réel.`,`⚖️ Your passive makes ≈ <b>${uUSD(avgPass)}</b> net/cycle. This budget costs ≈ <b>${uUSD(budgetUsd)}</b> → to beat passive, the boost must add <b>more than ${uUSD(budgetUsd)}</b> in blocks won thanks to it. Test 1 cycle and compare the real net.`)}</small>`:''}
+    </div>`;
+  }
+
+  // --- Carte 3 : rappel des mécaniques ---
+  html += `<details class="card" style="padding:0"><summary style="padding:14px 16px;cursor:pointer;font-weight:700">${trLit('📖 Mécaniques & pourquoi','📖 Mechanics & why')}</summary>
+    <div style="padding:0 16px 14px;line-height:1.6;color:var(--muted)">
+    <p>${trLit('<b>Clan Power-up</b> (bon marché) : ×2 ton score sur toute la ronde → gagne les rondes <b>longues</b>. <b>Turbo / Power-up</b> (cher) : ×100 PPS → de loin ton arme la plus forte en solo. <b>Timewrap</b> : 2,5 M pts sur 5 min → gagne les rondes <b>courtes</b>. La durée des rondes est aléatoire.','<b>Clan Power-up</b> (cheap): ×2 your score for the whole round → wins <b>long</b> rounds. <b>Turbo / Power-up</b> (expensive): ×100 PPS → by far your strongest weapon solo. <b>Timewrap</b>: 2.5M pts over 5 min → wins <b>short</b> rounds. Round duration is random.')}</p>
+    <p>${trLit('<b>Solo</b> : ton score seul affronte des clans entiers → un ×2 léger ne suffit presque jamais ; le ×100 du Turbo, oui. C\'est pourquoi on <b>concentre le Turbo</b> sur peu de rondes à haute valeur plutôt que d\'étaler.','<b>Solo</b>: your score alone fights whole clans → a light ×2 almost never suffices; Turbo\'s ×100 does. That\'s why we <b>concentrate Turbo</b> on a few high-value rounds instead of spreading.')}</p>
+    <p>${trLit('<b>Le multiplicateur pondère la VALEUR</b>, pas la probabilité : un x16 vaut 16 blocs x1. Plus le multiplicateur est haut, plus c\'est contesté (tout le monde booste) — mais c\'est là que la valeur est.','<b>The multiplier weights VALUE</b>, not probability: an x16 is worth 16 x1-blocks. The higher the multiplier, the more contested (everyone boosts) — but that\'s where the value is.')}</p>
+    <p style="color:var(--faint)">${trLit('Le timing (quels jours booster, quels clans sont dans ta ligue) est dans l\'onglet <b>Clans</b>.','Timing (which days to boost, which clans are in your league) is in the <b>Clans</b> tab.')}</p>
+    </div></details>`;
+
+  host.innerHTML = html;
+  if(LANG==='en') traduireArbre(host);
+}
 function switchTab(nom){
-  ["saisie","dashboard","graphiques","historique","plan","reglages","clans"].forEach(t=>{
+  ["saisie","dashboard","graphiques","historique","plan","reglages","clans","boost"].forEach(t=>{
     document.getElementById("tab-"+t).classList.toggle("hidden", t!==nom);
   });
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b.dataset.tab===nom));
   const _app=document.querySelector(".app"); if(_app) _app.classList.toggle("wide", nom==="clans"); // Clans = pleine largeur
-  const titres={saisie:"Saisie rapide",dashboard:"Tableau de bord",graphiques:"Graphiques",historique:"Historique",plan:"Plan de jeu",reglages:"Réglages",clans:"Dossier des clans"};
+  const titres={saisie:"Saisie rapide",dashboard:"Tableau de bord",graphiques:"Graphiques",historique:"Historique",plan:"Plan de jeu",reglages:"Réglages",clans:"Dossier des clans",boost:"Stratégie de boost"};
   const pt=document.getElementById("pageTitle"); if(pt) pt.textContent=titres[nom]||"";
   if(nom==="dashboard") renderDashboard();
   if(nom==="graphiques") renderGraphiques();
   if(nom==="historique") renderHistorique();
   if(nom==="reglages") remplirConfig();
   if(nom==="clans") remplirClans();
+  if(nom==="boost") renderBoost();
   if(nom==="saisie") renderRappelService();
   if(LANG==='en'){ if(pt) pt.textContent = trFr(pt.textContent); traduireArbre(document.getElementById("tab-"+nom)); }
   window.scrollTo(0,0);
@@ -2635,6 +2732,7 @@ addI18N({exact:{
  "🔎 Cherche un clan par nom…":"🔎 Search a clan by name…"
 }});
 addI18N({exact:{
+ "Stratégie de boost":"Boost strategy",
  "Rendement des blocs (cycle)":"Block yield (cycle)",
  "Coût GMT / bloc":"GMT cost / block",
  "Dépenses GMT du cycle ÷ blocs gagnés.":"Cycle GMT spending ÷ blocks won.",
