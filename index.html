@@ -951,6 +951,29 @@ function renderBoost(){
   } else if(valX1<=0){
     html += `<div class="card"><div class="warn">${trLit('Il faut au moins un cycle avec des gains (blocs + payout) pour estimer la valeur d\'un bloc.','Need at least one cycle with earnings (blocks + payout) to estimate a block\'s value.')}</div></div>`;
   } else {
+    // === QUEL SORT — selon la durée de ronde (efficacité = points par GMT) ===
+    const basePPS = (config.thTotal>0 && config.eeMoyenne>0) ? config.thTotal*20/config.eeMoyenne : 608;
+    const echoPts = D => { const t=Math.floor(D/120); return 50000*t*(t+1)/2; };
+    const SHORTD=180, LONGD=720;
+    const spellList = [
+      {n:'Focus', fx:'+2.5M / 5min', c:1, pts:D=>D<=300?2.5e6:0},
+      {n:'Instant', fx:'+1M', c:1, pts:()=>1e6},
+      {n:'Power boost', fx:'+2K/s', c:1, pts:D=>2000*D},
+      {n:'Echo', fx:'+50K↑/2min', c:1, pts:echoPts},
+      {n:'Power-up (Turbo)', fx:'×100 PPS', c:costTurbo||21.5, pts:D=>99*basePPS*D},
+      {n:'Clan Power-up', fx:'×2 PPS', c:costCPU||0.32, pts:D=>basePPS*D},
+    ];
+    const effS = s=>s.pts(SHORTD)/s.c, effL = s=>s.pts(LONGD)/s.c;
+    const winShort = spellList.slice().sort((a,b)=>effS(b)-effS(a))[0];
+    const winLong  = spellList.slice().sort((a,b)=>effL(b)-effL(a))[0];
+    const kK = v => v>=1e6 ? fmtNum(v/1e6,1)+'M' : fmtNum(v/1e3,0)+'K';
+    const srows = spellList.map(s=>{ const hi=(s===winShort||s===winLong); return `<tr${hi?' style="color:var(--green);font-weight:600"':''}><td>${s.n}</td><td style="color:var(--faint);font-size:.82rem">${s.fx}</td><td class="num">${kK(effS(s))}</td><td class="num">${kK(effL(s))}</td></tr>`; }).join('');
+    html += `<div class="card"><span class="kicker">${trLit('Quel sort — selon la durée de ronde','Which spell — by round length')}</span>
+      <p class="muted" style="margin:6px 0 10px;line-height:1.5">${trLit('Efficacité = points par GMT. Rondes COURTES et LONGUES ne récompensent pas les mêmes sorts. Palier base/Super/Ultra = ×1/×10/×100 (coût ET effet) → même efficacité, choisis-le assez gros pour battre les adversaires.','Efficiency = points per GMT. SHORT and LONG rounds reward different spells. Tier base/Super/Ultra = ×1/×10/×100 (cost AND effect) → same efficiency, pick it big enough to beat opponents.')}</p>
+      <div class="table-wrap"><table class="cyc"><thead><tr><th>${trLit('Sort','Spell')}</th><th>${trLit('Effet','Effect')}</th><th>${trLit('pts/GMT court','pts/GMT short')}</th><th>${trLit('pts/GMT long','pts/GMT long')}</th></tr></thead><tbody>${srows}</tbody></table></div>
+      <div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--surface2);line-height:1.55">
+        ${trLit(`<b>Rondes courtes (&lt; 5 min)</b> → <b style="color:var(--green)">${winShort.n}</b> (burst instantané, imbattable au GMT). <b>Rondes longues</b> → <b style="color:var(--green)">${winLong.n}</b> (s'accumule). La durée est aléatoire → configure les DEUX : Focus pour les courtes, Turbo pour les longues. Le % de rondes courtes/longues de ta ligue est dans l'onglet Clans.`,`<b>Short rounds (&lt; 5 min)</b> → <b style="color:var(--green)">${winShort.n}</b> (instant burst, unbeatable per GMT). <b>Long rounds</b> → <b style="color:var(--green)">${winLong.n}</b> (accumulates). Duration is random → set up BOTH: Focus for short, Turbo for long. Your league's short/long split is in the Clans tab.`)}
+      </div></div>`;
     const nTurbo = costTurbo>0? Math.floor(budgetGmt/costTurbo) : 0;
     // Coût RÉEL : le bot caste sur CHAQUE ronde qualifiante → estimer combien de rondes x8/x16/x32 par cycle.
     // RPC calibré sur l'estimation du jeu (~143 GMT/jour pour x8+x16 à 21,5 GMT/cast).
