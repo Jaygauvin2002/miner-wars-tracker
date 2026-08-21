@@ -227,9 +227,9 @@
   }
   async function scan(lgFrom, lgTo, nCycles) {
     if (scanning) return;
-    if (!S.recipe || !S.recipe.url) { scanMsg = '⚠️ Ouvre d\'abord l\'Historique 1×, puis relance.'; render(); return; }
+    if (!S.recipe || !S.recipe.url) { scanMsg = '⚠️ Open History once first, then rerun.'; render(); return; }
     const info = detectRecipe();
-    if (!info) { scanMsg = '⚠️ Requête illisible.'; render(); return; }
+    if (!info) { scanMsg = '⚠️ Unreadable request.'; render(); return; }
     scanning = true; scanStop = false;
     const nowCy = S.nowCy != null ? S.nowCy : (curCycle() || 0);
     let got = 0, effLimit = BIG_LIMIT;   // grosse limite ; repli auto sur la limite d'origine si le serveur la refuse
@@ -260,14 +260,14 @@
           const cy = nowCy - 1 - ci; if (cy <= 0) break;
           const key = cy + ':' + lg;
           if (S.seen[key]) continue;
-          const buf = await fetchCycle(lg, cy, `Ligue ${lg} cycle ${cy}`);
+          const buf = await fetchCycle(lg, cy, `League ${lg} cycle ${cy}`);
           if (buf.length) { buf.forEach(aggRound); got += buf.length; S.seen[key] = 1; save(); }
           await sleep(40);
         }
       }
-    } catch (e) { scanning = false; scanMsg = `🔒 Jeton expiré. Ouvre l'Historique 1× puis relance.`; render(); return; }
+    } catch (e) { scanning = false; scanMsg = `🔒 Token expired. Open History once then rerun.`; render(); return; }
     scanning = false;
-    scanMsg = scanStop ? `⏹ Arrêté · ${got} rounds captés.` : `✅ Fini · ${got} rounds captés.`;
+    scanMsg = scanStop ? `⏹ Stopped · ${got} rounds captured.` : `✅ Done · ${got} rounds captured.`;
     save(); render();
   }
 
@@ -277,44 +277,44 @@
     if (!box) return;
     const nClans = Object.keys(S.agg).length, nCyc = Object.keys(S.cyc).length, nNon = Object.keys(S.lgMax).filter(lg => (S.lgMax[lg] || 0) > 32).length;
     box.querySelector('#mwb').innerHTML =
-      `<div class="row" style="opacity:.75">${(S.nSeen || 0).toLocaleString('fr-CA')} rounds · ${nClans} clans · ${nCyc} cycles · ${nNon} non-Dune</div>` +
-      `<div class="scan"><div class="hd">🌐 Scanner ${S.recipe ? '<span style="color:#40cf87">requête apprise ✓</span>' : '<span style="color:#ffd166">ouvre l\'Historique 1×</span>'}</div>` +
-      `<div class="row2">ligues <input id="lgA" type="number" value="1"> à <input id="lgB" type="number" value="40"> · <input id="ncy" type="number" value="6"> cycles</div>` +
-      (scanning ? `<button id="mwstop" class="btnr">⏹ Stop</button> <span class="s">${scanMsg}</span>` : `<button id="mwscan" class="btng">▶ Scanner</button> <span class="s">${scanMsg}</span>`) +
+      `<div class="row" style="opacity:.75">${(S.nSeen || 0).toLocaleString('en-CA')} rounds · ${nClans} clans · ${nCyc} cycles · ${nNon} non-Dune</div>` +
+      `<div class="scan"><div class="hd">🌐 Scanner ${S.recipe ? '<span style="color:#40cf87">request learned ✓</span>' : '<span style="color:#ffd166">open History once</span>'}</div>` +
+      `<div class="row2">leagues <input id="lgA" type="number" value="1"> to <input id="lgB" type="number" value="40"> · <input id="ncy" type="number" value="6"> cycles</div>` +
+      (scanning ? `<button id="mwstop" class="btnr">⏹ Stop</button> <span class="s">${scanMsg}</span>` : `<button id="mwscan" class="btng">▶ Scan</button> <span class="s">${scanMsg}</span>`) +
       `</div>` +
-      (() => { const L = S.live || {}; const f = (v, d) => v == null ? '—' : (+v).toLocaleString('fr-CA', { maximumFractionDigits: d || 0 });
+      (() => { const L = S.live || {}; const f = (v, d) => v == null ? '—' : (+v).toLocaleString('en-CA', { maximumFractionDigits: d || 0 });
         const cycleLine = (L.gmt != null || L.sats != null)
-          ? `<div class="row2 s">💰 ${f(L.gmt, 2)} GMT · ₿ ${f(L.sats)} sats <span style="opacity:.6">· ce cycle</span></div>`
-          : `<div class="row2 s">💰 ${f(L.gmtCum, 2)} · ₿ ${f(L.satsCum)} <span style="opacity:.6">· cumul (récompense par cycle auto dès le prochain mardi)</span></div>`;
-        return `<div class="scan" style="margin-top:8px"><div class="hd">👤 Toi (live)</div>` + cycleLine +
-          `<div class="row2 s">🏅 rang ${L.rank == null ? '—' : L.rank} · 🤖 bot ${f(L.botGmt, 2)} GMT · GMT $${f(L.pxGmt, 4)}</div>` +
-          `<button id="mwperso" class="btng" style="margin-top:6px;font-size:11px;padding:3px 8px">📋 copier données perso (debug)</button>` +
-          `<button id="mwtokbtn" class="btng" style="margin-top:6px;margin-left:6px;font-size:11px;padding:3px 8px;background:#7ea0ff;color:#04101f">🔑 durée du jeton</button>` +
+          ? `<div class="row2 s">💰 ${f(L.gmt, 2)} GMT · ₿ ${f(L.sats)} sats <span style="opacity:.6">· this cycle</span></div>`
+          : `<div class="row2 s">💰 ${f(L.gmtCum, 2)} · ₿ ${f(L.satsCum)} <span style="opacity:.6">· total (per-cycle reward auto from next Tuesday)</span></div>`;
+        return `<div class="scan" style="margin-top:8px"><div class="hd">👤 You (live)</div>` + cycleLine +
+          `<div class="row2 s">🏅 rank ${L.rank == null ? '—' : L.rank} · 🤖 bot ${f(L.botGmt, 2)} GMT · GMT $${f(L.pxGmt, 4)}</div>` +
+          `<button id="mwperso" class="btng" style="margin-top:6px;font-size:11px;padding:3px 8px">📋 copy personal data (debug)</button>` +
+          `<button id="mwtokbtn" class="btng" style="margin-top:6px;margin-left:6px;font-size:11px;padding:3px 8px;background:#7ea0ff;color:#04101f">🔑 token lifetime</button>` +
           `<div id="mwtok" class="row2 s" style="margin-top:6px"></div></div>`; })() +
-      `<div class="row s" style="margin-top:8px;color:#8fd3a8">📡 Envoi auto vers ton tracker actif — ouvre ta page Miner Wars pour analyser.</div>`;
+      `<div class="row s" style="margin-top:8px;color:#8fd3a8">📡 Auto-syncing to your active tracker — open your Miner Wars page to analyze.</div>`;
     const bs = box.querySelector('#mwscan'); if (bs) bs.onclick = () => { const a = +box.querySelector('#lgA').value || 1, b = +box.querySelector('#lgB').value || 40, n = +box.querySelector('#ncy').value || 1; scan(a, b, n); };
     const bt = box.querySelector('#mwstop'); if (bt) bt.onclick = () => { scanStop = true; };
     const btk = box.querySelector('#mwtokbtn'); if (btk) btk.onclick = () => {
       const el = box.querySelector('#mwtok'); const r = tokenTTL();
       if (!el) return;
-      if (r.none) el.innerHTML = '⚠️ Aucun jeton vu — recharge/ouvre le jeu puis réessaie.';
-      else if (r.opaque) el.innerHTML = '🔒 Jeton opaque (pas un JWT) — je vérifierai autrement.';
-      else if (r.noexp) el.innerHTML = '♾️ Jeton sans expiration (bon signe pour le 24/7).';
-      else if (r.hours != null) el.innerHTML = `⏳ Le jeton expire dans <b>${r.hours} h</b>.` + (r.hours >= 24 ? ' ✅ Viable pour un bot cloud.' : ' ⚠️ Court — il faudra le renouveler.');
-      else el.innerHTML = 'Impossible de lire le jeton.';
+      if (r.none) el.innerHTML = '⚠️ No token seen — reload/open the game then retry.';
+      else if (r.opaque) el.innerHTML = '🔒 Opaque token (not a JWT) — will check another way.';
+      else if (r.noexp) el.innerHTML = '♾️ Token has no expiry (good for 24/7).';
+      else if (r.hours != null) el.innerHTML = `⏳ Token expires in <b>${r.hours} h</b>.` + (r.hours >= 24 ? ' ✅ Viable for a cloud bot.' : ' ⚠️ Short — it will need renewing.');
+      else el.innerHTML = 'Cannot read the token.';
     };
     const bp = box.querySelector('#mwperso'); if (bp) bp.onclick = () => {
       const j = JSON.stringify({ total: S.total, pos: S.pos, botGmt: S.botGmt, gmtPrice: S.gmtPrice, live: S.live, myId: S.myId, nowCy: S.nowCy, seenUrls: S.seenUrls, sampleRound: S.sampleRound, sampleMyRound: S.sampleMyRound, sampleUserRound: S.sampleUserRound, lastRoundKeys: S.lastRoundKeys, sampleRewards: S.sampleRewards, sampleClanLb: S.sampleClanLb, sampleUserLb: S.sampleUserLb }, null, 2);
-      const done = () => { bp.textContent = '✅ copié — colle dans le chat'; };
-      try { navigator.clipboard.writeText(j).then(done).catch(() => { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }); }
-      catch (e) { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ téléchargé — envoie le fichier'; }
+      const done = () => { bp.textContent = '✅ copied — paste in chat'; };
+      try { navigator.clipboard.writeText(j).then(done).catch(() => { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ downloaded — send the file'; }); }
+      catch (e) { const blob = new Blob([j], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_perso.json'; document.body.appendChild(a); a.click(); a.remove(); bp.textContent = '⬇︎ downloaded — send the file'; }
     };
   }
   function makeBox() {
     if (document.getElementById('mw-espion-box')) return;
     box = document.createElement('div'); box.id = 'mw-espion-box';
     box.style.cssText = 'position:fixed;top:56px;right:10px;z-index:2147483647;width:300px;background:#0e1526;color:#e6edf3;font:12px/1.5 system-ui;border:1px solid #2a3550;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5)';
-    box.innerHTML = `<div style="background:#16203a;padding:8px 11px;display:flex;justify-content:space-between;align-items:center;border-radius:12px 12px 0 0"><div style="font-weight:700">🕵️ MW Espion — capteur</div><span><button id="mwdl" title="exporter (secours)" style="background:#40cf87;color:#04120a;border:0;border-radius:6px;padding:3px 7px;cursor:pointer;font-weight:700">⬇︎</button> <button id="mwmin" style="background:#2a3550;color:#e6edf3;border:0;border-radius:6px;padding:3px 8px;cursor:pointer">–</button></span></div><div id="mwb" style="padding:10px 12px"></div><style>#mw-espion-box .row{font-size:11px;margin-bottom:10px}#mw-espion-box .hd{font-weight:700;color:#7ea0ff;margin-bottom:3px}#mw-espion-box .s{opacity:.75;font-size:11px}#mw-espion-box .scan{background:#111a2e;border:1px solid #24314f;border-radius:8px;padding:7px 8px}#mw-espion-box .row2{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:4px 0}#mw-espion-box input{background:#0a1120;color:#e6edf3;border:1px solid #2a3550;border-radius:5px;padding:2px 4px;width:40px}#mw-espion-box .btng{background:#40cf87;color:#04120a;border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:700}#mw-espion-box .btnr{background:#ff6b6b;color:#210606;border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:700}</style>`;
+    box.innerHTML = `<div style="background:#16203a;padding:8px 11px;display:flex;justify-content:space-between;align-items:center;border-radius:12px 12px 0 0"><div style="font-weight:700">🕵️ MW Spy — capturer</div><span><button id="mwdl" title="export (backup)" style="background:#40cf87;color:#04120a;border:0;border-radius:6px;padding:3px 7px;cursor:pointer;font-weight:700">⬇︎</button> <button id="mwmin" style="background:#2a3550;color:#e6edf3;border:0;border-radius:6px;padding:3px 8px;cursor:pointer">–</button></span></div><div id="mwb" style="padding:10px 12px"></div><style>#mw-espion-box .row{font-size:11px;margin-bottom:10px}#mw-espion-box .hd{font-weight:700;color:#7ea0ff;margin-bottom:3px}#mw-espion-box .s{opacity:.75;font-size:11px}#mw-espion-box .scan{background:#111a2e;border:1px solid #24314f;border-radius:8px;padding:7px 8px}#mw-espion-box .row2{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:4px 0}#mw-espion-box input{background:#0a1120;color:#e6edf3;border:1px solid #2a3550;border-radius:5px;padding:2px 4px;width:40px}#mw-espion-box .btng{background:#40cf87;color:#04120a;border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:700}#mw-espion-box .btnr{background:#ff6b6b;color:#210606;border:0;border-radius:6px;padding:4px 10px;cursor:pointer;font-weight:700}</style>`;
     document.body.appendChild(box);
     box.querySelector('#mwmin').onclick = () => { const b = box.querySelector('#mwb'); b.style.display = b.style.display === 'none' ? '' : 'none'; };
     box.querySelector('#mwdl').onclick = () => { const blob = new Blob([JSON.stringify(S)], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'mw_spy.json'; document.body.appendChild(a); a.click(); a.remove(); };

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Miner Wars — Espion",
-  "version": "8.3",
-  "description": "Capteur Miner Wars (GoMining) : capte les données du jeu et les envoie automatiquement vers ta page tracker pour analyse.",
+  "name": "Miner Wars — Spy",
+  "version": "8.4",
+  "description": "Miner Wars (GoMining) capturer: captures game data and auto-sends it to your tracker page for analysis.",
   "permissions": ["storage"],
   "content_scripts": [
     {
