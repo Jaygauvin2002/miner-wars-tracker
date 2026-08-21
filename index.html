@@ -934,8 +934,8 @@ function renderBoost(){
     <p class="muted" style="margin:6px 0 12px;line-height:1.5">${trLit('Les coûts de spells varient selon TON TH et le TH du clan — entre-les tels que le jeu te les montre.','Spell costs vary with YOUR TH and the clan TH — enter them as the game shows you.')}</p>
     <label>${trLit('Budget max de spells par cycle','Max spell budget per cycle')}</label>
     <div style="display:flex;gap:8px;align-items:center">
-      <input type="number" inputmode="decimal" id="bstBudget" value="${bval}" placeholder="${unit==='usd'?'100':'345'}" onchange="saveBoostConfig()" style="flex:1">
-      <select id="bstUnit" onchange="saveBoostConfig()"><option value="usd" ${unit==='usd'?'selected':''}>USD</option><option value="gmt" ${unit==='gmt'?'selected':''}>GMT</option></select>
+      <input type="number" inputmode="decimal" id="bstBudget" value="${bval}" placeholder="${unit==='usd'?'100':'345'}" onchange="saveBoostConfig()" style="flex:1 1 auto;min-width:0;width:auto">
+      <select id="bstUnit" onchange="saveBoostConfig()" style="flex:0 0 92px;width:92px"><option value="usd" ${unit==='usd'?'selected':''}>USD</option><option value="gmt" ${unit==='gmt'?'selected':''}>GMT</option></select>
     </div>
     <small class="muted">${pxGmt>0? (unit==='usd'? `≈ ${fmtNum(budgetGmt,0)} GMT` : `≈ ${uUSD(budgetUsd)}`) + ` (${trLit('GMT à','GMT at')} $${fmtNum(pxGmt,4)})` : trLit('prix GMT indisponible','GMT price unavailable')}</small>
     <div class="two" style="margin-top:12px">
