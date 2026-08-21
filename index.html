@@ -902,6 +902,13 @@ function basculerLangue(){ LANG = (LANG==='en') ? 'fr' : 'en'; ecrire("lang", LA
    ========================================================================== */
 const BOOST_CONTEST = {1:13,2:26,4:51,8:70,16:83,32:90};   // % de rondes où le GAGNANT a boosté (Dune)
 const BOOST_PROBA   = {1:64,2:23,4:8.5,8:3,16:1.1,32:0.4}; // % de rondes à chaque multiplicateur
+let __boostCur = null;   // snapshot de la stratégie affichée (pour Sauvegarder)
+function cycleBoostStrat(){ config.boostStratIdx=((config.boostStratIdx||0)+1)%3; ecrire('config',config); renderBoost(); }
+function saveBoostStrat(){ if(!__boostCur) return; config.savedBoostStrats=config.savedBoostStrats||[];
+  config.savedBoostStrats.unshift({ name:__boostCur.name, spells:__boostCur.spells, plan:__boostCur.plan, date:new Date().toLocaleDateString(LANG==='en'?'en-CA':'fr-CA',{day:'2-digit',month:'short'}) });
+  if(config.savedBoostStrats.length>12) config.savedBoostStrats.length=12;
+  ecrire('config',config); toast(trLit('Stratégie sauvegardée','Strategy saved')); renderBoost(); }
+function deleteBoostStrat(i){ if(config.savedBoostStrats){ config.savedBoostStrats.splice(i,1); ecrire('config',config); renderBoost(); } }
 function saveBoostConfig(){
   const unitEl=document.getElementById('bstUnit'); const unit = unitEl? unitEl.value : (config.budgetUnit||'gmt');
   config.budgetUnit = unit;
@@ -974,56 +981,67 @@ function renderBoost(){
       <div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--surface2);line-height:1.55">
         ${trLit(`<b>Tu ne peux pas prévoir la durée d'une ronde avant qu'elle finisse.</b> Le bot applique un setup FIXE par multiplicateur → la solution est de <b>caster les DEUX</b> sur tes multiplicateurs cibles : <b style="color:var(--green)">Turbo</b> (workhorse, gros points sur courtes ET longues) + <b style="color:var(--green)">Focus</b> (1 GMT, renforce les courtes où son burst de 2,5M peut faire basculer). Turbo gagne les longues, Focus fait pencher les courtes — celui qui compte gagne selon la durée. Le palier scale ton pari pour battre les adversaires.`,`<b>You can't know a round's length before it ends.</b> The bot applies a FIXED setup per multiplier → the answer is to <b>cast BOTH</b> on your target multipliers: <b style="color:var(--green)">Turbo</b> (workhorse, big points on short AND long) + <b style="color:var(--green)">Focus</b> (1 GMT, strengthens short rounds where its 2.5M burst can tip the result). Turbo wins the long ones, Focus tips the short ones — whichever matters wins by duration. The tier scales your bid to beat opponents.`)}
       </div></div>`;
-    const nTurbo = costTurbo>0? Math.floor(budgetGmt/costTurbo) : 0;
-    // Coût RÉEL : le bot caste sur CHAQUE ronde qualifiante → estimer combien de rondes x8/x16/x32 par cycle.
-    // RPC calibré sur l'estimation du jeu (~143 GMT/jour pour x8+x16 à 21,5 GMT/cast).
+    // ===== ARCHÉTYPES DE STRATÉGIE — bouton Régénérer pour changer, Sauvegarder pour garder =====
     const RPC = 1140;
     const roundsOf = m => Math.round(RPC*BOOST_PROBA[m]/100);
-    // Split durée : % de rondes COURTES (<5 min) depuis tes blocs loggés, sinon défaut ~40%.
-    const _durB = entries.filter(e=>e.type==='bloc' && e.dureeRondeMin>0);
-    const pctShort = _durB.length>=3 ? Math.round(_durB.filter(e=>e.dureeRondeMin<5).length/_durB.length*100) : 40;
-    const fShort = pctShort/100;
-    // On ne peut PAS prédire la durée → le Turbo est le workhorse (marche sur courtes ET longues), coût par ronde.
-    const blendGmt = (costTurbo||21.5), blendUsd = blendGmt*pxGmt;
-    const focusInsGmt = 1;   // Focus ajouté en assurance rondes-courtes (+1 GMT/ronde)
-    const castsFull = [8,16,32].reduce((a,m)=>a+roundsOf(m),0);
-    const casts1632 = [16,32].reduce((a,m)=>a+roundsOf(m),0);
-    const fullGmt = castsFull*blendGmt, fullUsd = fullGmt*pxGmt;
-    const gmt1632 = casts1632*blendGmt, usd1632 = gmt1632*pxGmt;
-    // Allocation PILOTÉE PAR LE BUDGET : des plus gros multiplicateurs (meilleure valeur) vers le bas.
-    const nBoosts = blendGmt>0? Math.floor(budgetGmt/blendGmt) : 0;
-    const alloc = {32:0,16:0,8:0,4:0,2:0,1:0};
-    let rem = nBoosts;
-    [32,16,8,4,2].forEach(m=>{ const worth = valX1*m > blendUsd; if(worth && rem>0){ const r=roundsOf(m); const c=Math.min(r,rem); alloc[m]=c; rem-=c; } });
-    const totalAlloc = [32,16,8,4,2].reduce((a,m)=>a+alloc[m],0);
-    const spentGmt = totalAlloc*blendGmt, spentUsd = spentGmt*pxGmt;
-    const covered = [32,16,8,4,2].filter(m=>alloc[m]>0).map(m=>`x${m} (${alloc[m]}${alloc[m]<roundsOf(m)?'/'+roundsOf(m):''})`).join(' · ');
-    const nextGap = [32,16,8,4].find(m=> valX1*m>blendUsd && alloc[m]<roundsOf(m));
+    const F=1, T=(costTurbo||21.5), CP=(costCPU||0.32);
+    const strats = [
+      { id:'concentre', name:trLit('Concentrée — gros multiplicateurs','Concentrated — big multipliers'), spells:trLit('Turbo + Focus','Turbo + Focus'), per:T+F, mults:[32,16,8,4], rf:roundsOf, always:false,
+        desc:trLit(`Turbo + Focus sur les plus gros multiplicateurs d'abord. Valeur max par cast — ces rondes sont rares mais paient gros.`,`Turbo + Focus on the biggest multipliers first. Max value per cast — those rounds are rare but pay big.`) },
+      { id:'constant', name:trLit('Constante — toutes les rondes','Constant — every round'), spells:trLit('Clan Power-up + Focus','Clan Power-up + Focus'), per:CP+F, mults:[32,16,8,4,2,1], rf:roundsOf, always:true,
+        desc:trLit(`Sorts bon marché (Clan Power-up + Focus) sur TOUTES les rondes → présence constante, tu tentes chaque victoire. Faible sur les hauts multiplicateurs contestés, mais pas cher.`,`Cheap spells (Clan Power-up + Focus) on EVERY round → constant presence, you contest every win. Weak on contested high mults, but cheap.`) },
+      { id:'blitz', name:trLit('Blitz — une seule journée','Blitz — a single day'), spells:trLit('Turbo + Focus','Turbo + Focus'), per:T+F, mults:[32,16,8,4,2], rf:(m=>Math.max(1,Math.round(roundsOf(m)/7))), perDay:true, always:false,
+        desc:trLit(`Tout le budget sur UNE journée (choisis un jour peu contesté — onglet Clans). Tu domines 24 h, absent le reste du cycle.`,`Whole budget on ONE day (pick a low-competition day — Clans tab). You dominate 24h, absent the rest.`) },
+    ];
+    let sIdx = config.boostStratIdx||0; if(sIdx>=strats.length||sIdx<0) sIdx=0;
+    const strat = strats[sIdx];
+    const perUsd = strat.per*pxGmt;
+    let rem = strat.per>0? Math.floor(budgetGmt/strat.per):0;
+    const alloc={};
+    strat.mults.forEach(m=>{ const worth = strat.always ? m>1 : valX1*m>perUsd; if(worth && rem>0){ const r=strat.rf(m); const c=Math.min(r,rem); alloc[m]=c; rem-=c; } else alloc[m]=0; });
+    const totalAlloc = strat.mults.reduce((a,m)=>a+(alloc[m]||0),0);
+    const spentGmt = totalAlloc*strat.per, spentUsd = spentGmt*pxGmt;
+    const covered = strat.mults.filter(m=>alloc[m]>0).map(m=>`x${m} (${alloc[m]}${alloc[m]<strat.rf(m)?'/'+strat.rf(m):''})`).join(' · ');
     const rows = [32,16,8,4,2,1].map(m=>{
-      const valUSD=valX1*m, contest=BOOST_CONTEST[m], r=roundsOf(m), a=alloc[m];
+      const valUSD=valX1*m, contest=BOOST_CONTEST[m], r=strat.rf(m), a=alloc[m]||0;
       let verdict,col;
-      if(m===1){ verdict=trLit('Passe — gratuit, valeur minime','Skip — free, tiny value'); col='var(--muted)'; }
-      else if(valUSD<blendUsd){ verdict=trLit('Passe — vaut moins que le coût d\'un boost','Skip — worth less than one boost'); col='var(--muted)'; }
-      else if(a>0 && a>=r){ verdict=trLit(`⭐ Turbo sur les ~${r} rondes du cycle`,`⭐ Turbo on all ~${r} rounds this cycle`); col='var(--green)'; }
-      else if(a>0){ verdict=trLit(`⭐ Turbo ~${a} des ~${r} rondes (budget s'arrête ici)`,`⭐ Turbo ~${a} of ~${r} rounds (budget stops here)`); col='var(--accent)'; }
-      else { verdict=trLit('Passe — budget déjà mis sur les plus gros','Skip — budget already spent on higher mults'); col='var(--muted)'; }
+      if(a>0 && a>=r){ verdict=trLit(`⭐ ${strat.spells} — ${a} ronde${a>1?'s':''}`,`⭐ ${strat.spells} — ${a} round${a>1?'s':''}`); col='var(--green)'; }
+      else if(a>0){ verdict=trLit(`⭐ ${strat.spells} — ${a}/${r} (budget s'arrête)`,`⭐ ${strat.spells} — ${a}/${r} (budget stops)`); col='var(--accent)'; }
+      else if(m===1){ verdict=trLit('Passe — gratuit','Skip — free'); col='var(--muted)'; }
+      else if(valUSD<perUsd && !strat.always){ verdict=trLit('Passe — vaut moins qu\'un boost','Skip — worth less than a boost'); col='var(--muted)'; }
+      else { verdict=trLit('Passe — budget épuisé','Skip — budget spent'); col='var(--muted)'; }
       return `<tr><td>x${m}</td><td class="num">${contest}%</td><td class="num">${valX1>0?uUSD(valUSD):'—'}</td><td style="color:${col}">${verdict}</td></tr>`;
     }).join('');
-    html += `<div class="card"><span class="kicker">${trLit('Ta stratégie recommandée','Your recommended strategy')}</span>
-      <div class="table-wrap"><table class="cyc" style="margin-top:8px">
-        <thead><tr><th>${trLit('Multi','Mult')}</th><th>${trLit('Contesté','Contested')}</th><th>${trLit('Valeur / bloc','Value / block')}</th><th>${trLit('Reco','Advice')}</th></tr></thead>
-        <tbody>${rows}</tbody></table></div>
-      <div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface2);line-height:1.55">
-        <b>${trLit('Ton plan avec ce budget','Your plan with this budget')} :</b> ${covered
-          ? trLit(`<b>Turbo</b> sur ~${nBoosts} rondes → <b>${covered}</b> · coût ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`,`<b>Turbo</b> on ~${nBoosts} rounds → <b>${covered}</b> · cost ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`)
-          : trLit('budget trop bas pour un seul Turbo rentable — augmente-le.','budget too low for even one worthwhile Turbo — raise it.')}
-        <div style="margin-top:8px">${ rem>0 && covered
-          ? trLit(`Il te reste ~${rem} cast(s) après les multiplicateurs rentables — monte les casts ou tiens-toi-en là.`,`~${rem} cast(s) left after the worthwhile multipliers — add casts or stop there.`)
-          : (nextGap ? trLit(`Pour couvrir tout le <b>x${nextGap}</b>, il faudrait plus de budget. Setup complet (x8/x16/x32) ≈ ${uUSD(fullUsd)}/cycle.`,`To fully cover <b>x${nextGap}</b>, you'd need more budget. Full setup (x8/x16/x32) ≈ ${uUSD(fullUsd)}/cycle.`) : '') }</div>
-        <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(52,199,89,.10);color:var(--green);font-size:.82rem;line-height:1.5">${trLit(`💡 Tu ne peux pas prévoir la durée d'une ronde → le <b>Turbo est ton workhorse</b> : il donne de gros points sur les courtes ET les longues. Ajoute <b>Focus</b> (+1 GMT/ronde, ~${fmtNum(totalAlloc*focusInsGmt,0)} GMT/cycle) en assurance : il renforce tes rondes courtes pour presque rien. Le bot caste les deux à chaque ronde ; celui qui compte gagne selon la durée.`,`💡 You can't predict a round's length → the <b>Turbo is your workhorse</b>: it gives big points on short AND long rounds. Add <b>Focus</b> (+1 GMT/round, ~${fmtNum(totalAlloc*focusInsGmt,0)} GMT/cycle) as insurance: it strengthens your short rounds for almost nothing. The bot casts both every round; whichever matters wins by duration.`)}</div>
+    __boostCur = { name: strat.name, spells: strat.spells, plan: (covered||'—')+' · '+uUSD(spentUsd), covered, spentUsd };
+    html += `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="kicker" style="margin:0">${trLit('Stratégie','Strategy')} ${sIdx+1}/${strats.length}</span>
+        <span style="display:flex;gap:6px">
+          <button class="btn" style="padding:5px 11px;font-size:.8rem" onclick="cycleBoostStrat()">↻ ${trLit('Régénérer','Regenerate')}</button>
+          <button class="btn accent" style="padding:5px 11px;font-size:.8rem" onclick="saveBoostStrat()">💾 ${trLit('Sauvegarder','Save')}</button>
+        </span>
       </div>
-      ${avgPass!=null?`<small class="muted" style="display:block;margin-top:10px">${trLit(`⚖️ Ton passif fait ≈ <b>${uUSD(avgPass)}</b> net/cycle. Ce plan dépense ≈ <b>${uUSD(spentUsd)}</b> → pour battre le passif, le boost doit ajouter <b>plus de ${uUSD(spentUsd)}</b> de blocs gagnés grâce à lui. Teste 1 cycle et compare le net réel.`,`⚖️ Your passive makes ≈ <b>${uUSD(avgPass)}</b> net/cycle. This plan spends ≈ <b>${uUSD(spentUsd)}</b> → to beat passive, the boost must add <b>more than ${uUSD(spentUsd)}</b> in blocks won thanks to it. Test 1 cycle and compare the real net.`)}</small>`:''}
+      <h2 style="margin:8px 0 2px;font-size:1.05rem">${strat.name}</h2>
+      <p class="muted" style="margin:2px 0 6px;line-height:1.5">${strat.desc}</p>
+      <div style="font-size:.85rem;margin-bottom:8px"><b>${trLit('Sorts à activer','Spells to enable')} :</b> <span style="color:var(--green);font-weight:700">${strat.spells}</span></div>
+      <div class="table-wrap"><table class="cyc"><thead><tr><th>${trLit('Multi','Mult')}</th><th>${trLit('Contesté','Contested')}</th><th>${trLit('Valeur / bloc','Value / block')}</th><th>${trLit('Reco','Advice')}</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface2);line-height:1.55">
+        <b>${trLit('Ce plan','This plan')} :</b> ${covered
+          ? trLit(`<b>${strat.spells}</b>${strat.perDay?trLit(' sur 1 journée',' on 1 day'):''} → <b>${covered}</b> · coût ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`,`<b>${strat.spells}</b>${strat.perDay?' on 1 day':''} → <b>${covered}</b> · cost ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`)
+          : trLit('budget trop bas — augmente-le.','budget too low — raise it.')}
+        <div style="margin-top:8px;color:var(--faint);font-size:.82rem">${trLit('Active ces sorts dans le Spell Bot du jeu, sur ces multiplicateurs. Le bot les caste à chaque ronde (tu ne choisis pas selon la durée) — Turbo porte les longues, Focus fait pencher les courtes.','Enable these spells in the game\'s Spell Bot, on these multipliers. The bot casts them every round (you don\'t pick by duration) — Turbo carries the long ones, Focus tips the short ones.')}</div>
+      </div>
+      ${avgPass!=null?`<small class="muted" style="display:block;margin-top:10px">${trLit(`⚖️ Passif ≈ <b>${uUSD(avgPass)}</b> net/cycle · ce plan dépense ≈ <b>${uUSD(spentUsd)}</b> → il doit rapporter plus que ça pour valoir le coup. Teste et compare le net réel.`,`⚖️ Passive ≈ <b>${uUSD(avgPass)}</b> net/cycle · this plan spends ≈ <b>${uUSD(spentUsd)}</b> → it must earn more than that to be worth it. Test and compare the real net.`)}</small>`:''}
     </div>`;
+    // stratégies sauvegardées
+    const _saved = config.savedBoostStrats||[];
+    if(_saved.length){
+      html += `<div class="card"><span class="kicker">${trLit('Stratégies sauvegardées','Saved strategies')}</span>` +
+        _saved.map((s,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border)">
+          <div style="min-width:0"><b>${escHtml(s.name||'')}</b> <span style="color:var(--green);font-size:.8rem">${escHtml(s.spells||'')}</span><div class="muted" style="font-size:.8rem">${escHtml(s.date||'')} · ${escHtml(s.plan||'')}</div></div>
+          <button class="btn ghost" style="padding:3px 9px;font-size:.78rem;flex:none" onclick="deleteBoostStrat(${i})">🗑</button>
+        </div>`).join('')+`</div>`;
+    }
   }
 
   // --- Carte 3 : rappel des mécaniques ---
