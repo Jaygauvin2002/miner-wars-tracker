@@ -978,27 +978,33 @@ function renderBoost(){
     // Coût RÉEL : le bot caste sur CHAQUE ronde qualifiante → estimer combien de rondes x8/x16/x32 par cycle.
     // RPC calibré sur l'estimation du jeu (~143 GMT/jour pour x8+x16 à 21,5 GMT/cast).
     const RPC = 1140;
-    const castsFull = [8,16,32].reduce((a,m)=>a+RPC*BOOST_PROBA[m]/100,0);
-    const casts1632 = [16,32].reduce((a,m)=>a+RPC*BOOST_PROBA[m]/100,0);
-    const fullGmt = castsFull*costTurbo, fullUsd = fullGmt*pxGmt;
-    const gmt1632 = casts1632*costTurbo, usd1632 = gmt1632*pxGmt;
-    const daysCov = fullGmt>0 ? 7*budgetGmt/fullGmt : 0;
-    // Allocation PILOTÉE PAR LE BUDGET : des plus gros multiplicateurs (meilleure valeur/cast) vers le bas.
     const roundsOf = m => Math.round(RPC*BOOST_PROBA[m]/100);
+    // Split durée : % de rondes COURTES (<5 min) depuis tes blocs loggés, sinon défaut ~40%.
+    const _durB = entries.filter(e=>e.type==='bloc' && e.dureeRondeMin>0);
+    const pctShort = _durB.length>=3 ? Math.round(_durB.filter(e=>e.dureeRondeMin<5).length/_durB.length*100) : 40;
+    const fShort = pctShort/100;
+    // Coût MOYEN par ronde boostée = Focus (1 GMT) sur les courtes + Turbo sur les longues.
+    const blendGmt = fShort*1 + (1-fShort)*(costTurbo||21.5), blendUsd = blendGmt*pxGmt;
+    const castsFull = [8,16,32].reduce((a,m)=>a+roundsOf(m),0);
+    const casts1632 = [16,32].reduce((a,m)=>a+roundsOf(m),0);
+    const fullGmt = castsFull*blendGmt, fullUsd = fullGmt*pxGmt;
+    const gmt1632 = casts1632*blendGmt, usd1632 = gmt1632*pxGmt;
+    // Allocation PILOTÉE PAR LE BUDGET : des plus gros multiplicateurs (meilleure valeur) vers le bas.
+    const nBoosts = blendGmt>0? Math.floor(budgetGmt/blendGmt) : 0;
     const alloc = {32:0,16:0,8:0,4:0,2:0,1:0};
-    let rem = nTurbo;
-    [32,16,8,4,2].forEach(m=>{ const worth = costTurbo>0 && valX1*m > turboUsd; if(worth && rem>0){ const r=roundsOf(m); const c=Math.min(r,rem); alloc[m]=c; rem-=c; } });
+    let rem = nBoosts;
+    [32,16,8,4,2].forEach(m=>{ const worth = valX1*m > blendUsd; if(worth && rem>0){ const r=roundsOf(m); const c=Math.min(r,rem); alloc[m]=c; rem-=c; } });
     const totalAlloc = [32,16,8,4,2].reduce((a,m)=>a+alloc[m],0);
-    const spentGmt = totalAlloc*costTurbo, spentUsd = spentGmt*pxGmt;
+    const spentGmt = totalAlloc*blendGmt, spentUsd = spentGmt*pxGmt;
     const covered = [32,16,8,4,2].filter(m=>alloc[m]>0).map(m=>`x${m} (${alloc[m]}${alloc[m]<roundsOf(m)?'/'+roundsOf(m):''})`).join(' · ');
-    const nextGap = [32,16,8,4].find(m=> valX1*m>turboUsd && alloc[m]<roundsOf(m));   // 1er mult rentable pas entièrement couvert
+    const nextGap = [32,16,8,4].find(m=> valX1*m>blendUsd && alloc[m]<roundsOf(m));
     const rows = [32,16,8,4,2,1].map(m=>{
       const valUSD=valX1*m, contest=BOOST_CONTEST[m], r=roundsOf(m), a=alloc[m];
       let verdict,col;
       if(m===1){ verdict=trLit('Passe — gratuit, valeur minime','Skip — free, tiny value'); col='var(--muted)'; }
-      else if(costTurbo>0 && valUSD<turboUsd){ verdict=trLit('Passe — vaut moins qu\'un cast Turbo','Skip — worth less than a Turbo cast'); col='var(--muted)'; }
-      else if(a>0 && a>=r){ verdict=trLit(`⭐ Turbo — les ~${r} rondes du cycle`,`⭐ Turbo — all ~${r} rounds this cycle`); col='var(--green)'; }
-      else if(a>0){ verdict=trLit(`⭐ Turbo ~${a} des ~${r} rondes (ton budget s'arrête ici)`,`⭐ Turbo ~${a} of ~${r} rounds (budget stops here)`); col='var(--accent)'; }
+      else if(valUSD<blendUsd){ verdict=trLit('Passe — vaut moins que le coût d\'un boost','Skip — worth less than one boost'); col='var(--muted)'; }
+      else if(a>0 && a>=r){ verdict=trLit(`⭐ Boost les ~${r} rondes (Focus si courte · Turbo si longue)`,`⭐ Boost all ~${r} rounds (Focus if short · Turbo if long)`); col='var(--green)'; }
+      else if(a>0){ verdict=trLit(`⭐ Boost ~${a} des ~${r} rondes (budget s'arrête ici)`,`⭐ Boost ~${a} of ~${r} rounds (budget stops here)`); col='var(--accent)'; }
       else { verdict=trLit('Passe — budget déjà mis sur les plus gros','Skip — budget already spent on higher mults'); col='var(--muted)'; }
       return `<tr><td>x${m}</td><td class="num">${contest}%</td><td class="num">${valX1>0?uUSD(valUSD):'—'}</td><td style="color:${col}">${verdict}</td></tr>`;
     }).join('');
@@ -1008,12 +1014,12 @@ function renderBoost(){
         <tbody>${rows}</tbody></table></div>
       <div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface2);line-height:1.55">
         <b>${trLit('Ton plan avec ce budget','Your plan with this budget')} :</b> ${covered
-          ? trLit(`~${nTurbo} Turbo → <b>${covered}</b> · coût ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`,`~${nTurbo} Turbo → <b>${covered}</b> · cost ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`)
-          : trLit('budget trop bas pour un seul Turbo rentable — augmente-le.','budget too low for even one worthwhile Turbo — raise it.')}
+          ? trLit(`~${nBoosts} boosts → <b>${covered}</b> · coût ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}). Sur chaque ronde : <b>Focus</b> si courte, <b>Turbo</b> si longue (coût moyen ~${fmtNum(blendGmt,1)} GMT, ${pctShort}% de courtes).`,`~${nBoosts} boosts → <b>${covered}</b> · cost ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}). On each round: <b>Focus</b> if short, <b>Turbo</b> if long (avg cost ~${fmtNum(blendGmt,1)} GMT, ${pctShort}% short).`)
+          : trLit('budget trop bas pour un seul boost rentable — augmente-le.','budget too low for even one worthwhile boost — raise it.')}
         <div style="margin-top:8px">${ rem>0 && covered
-          ? trLit(`Il te reste ~${rem} cast(s) après les multiplicateurs rentables — monte tes casts ou tiens-toi-en là.`,`~${rem} cast(s) left after the worthwhile multipliers — add casts or stop there.`)
+          ? trLit(`Il te reste ~${rem} boost(s) après les multiplicateurs rentables — monte les casts ou tiens-toi-en là.`,`~${rem} boost(s) left after the worthwhile multipliers — add casts or stop there.`)
           : (nextGap ? trLit(`Pour couvrir tout le <b>x${nextGap}</b>, il faudrait plus de budget. Setup complet (x8/x16/x32) ≈ ${uUSD(fullUsd)}/cycle.`,`To fully cover <b>x${nextGap}</b>, you'd need more budget. Full setup (x8/x16/x32) ≈ ${uUSD(fullUsd)}/cycle.`) : '') }</div>
-        <div style="margin-top:8px;color:var(--faint);font-size:.82rem">${trLit('Le bot caste sur CHAQUE ronde qualifiante → le budget se répartit du plus gros multiplicateur vers le bas. Évite x1 et l\'étalement x2/x4.','The bot casts on EVERY qualifying round → the budget fills from the biggest multiplier down. Avoid x1 and spreading on x2/x4.')}</div>
+        <div style="margin-top:8px;color:var(--faint);font-size:.82rem">${trLit('Coût moyen = Focus (1 GMT) sur les rondes courtes + Turbo sur les longues. Le bot caste sur chaque ronde qualifiante → le budget se répartit du plus gros multiplicateur vers le bas. Évite x1.','Avg cost = Focus (1 GMT) on short rounds + Turbo on long ones. The bot casts on every qualifying round → the budget fills from the biggest multiplier down. Avoid x1.')}</div>
       </div>
       ${avgPass!=null?`<small class="muted" style="display:block;margin-top:10px">${trLit(`⚖️ Ton passif fait ≈ <b>${uUSD(avgPass)}</b> net/cycle. Ce plan dépense ≈ <b>${uUSD(spentUsd)}</b> → pour battre le passif, le boost doit ajouter <b>plus de ${uUSD(spentUsd)}</b> de blocs gagnés grâce à lui. Teste 1 cycle et compare le net réel.`,`⚖️ Your passive makes ≈ <b>${uUSD(avgPass)}</b> net/cycle. This plan spends ≈ <b>${uUSD(spentUsd)}</b> → to beat passive, the boost must add <b>more than ${uUSD(spentUsd)}</b> in blocks won thanks to it. Test 1 cycle and compare the real net.`)}</small>`:''}
     </div>`;
