@@ -960,18 +960,23 @@ function renderBoost(){
     const fullGmt = castsFull*costTurbo, fullUsd = fullGmt*pxGmt;
     const gmt1632 = casts1632*costTurbo, usd1632 = gmt1632*pxGmt;
     const daysCov = fullGmt>0 ? 7*budgetGmt/fullGmt : 0;
+    // Allocation PILOTÉE PAR LE BUDGET : des plus gros multiplicateurs (meilleure valeur/cast) vers le bas.
+    const roundsOf = m => Math.round(RPC*BOOST_PROBA[m]/100);
+    const alloc = {32:0,16:0,8:0,4:0,2:0,1:0};
+    let rem = nTurbo;
+    [32,16,8,4,2].forEach(m=>{ const worth = costTurbo>0 && valX1*m > turboUsd; if(worth && rem>0){ const r=roundsOf(m); const c=Math.min(r,rem); alloc[m]=c; rem-=c; } });
+    const totalAlloc = [32,16,8,4,2].reduce((a,m)=>a+alloc[m],0);
+    const spentGmt = totalAlloc*costTurbo, spentUsd = spentGmt*pxGmt;
+    const covered = [32,16,8,4,2].filter(m=>alloc[m]>0).map(m=>`x${m} (${alloc[m]}${alloc[m]<roundsOf(m)?'/'+roundsOf(m):''})`).join(' · ');
+    const nextGap = [32,16,8,4].find(m=> valX1*m>turboUsd && alloc[m]<roundsOf(m));   // 1er mult rentable pas entièrement couvert
     const rows = [32,16,8,4,2,1].map(m=>{
-      const valUSD = valX1*m, contest = BOOST_CONTEST[m];
-      let verdict, col;
-      if(m===1){ verdict=trLit('Passe — gagné gratuitement, valeur minime','Skip — won free, tiny value'); col='var(--muted)'; }
-      else if(m<=4){
-        if(turboUsd>0 && valUSD < turboUsd){ verdict=trLit('Passe — un bloc vaut moins qu\'un cast Turbo','Skip — a block is worth less than a Turbo cast'); col='var(--muted)'; }
-        else { verdict=trLit(`Turbo peu rentable · Clan Power-up seulement si très bon marché (gagné sans boost ${100-contest}% du temps)`,`Turbo marginal · Clan Power-up only if very cheap (won without boost ${100-contest}% of the time)`); col='var(--muted)'; }
-      }
-      else { // x8/x16/x32
-        if(turboUsd>0 && valUSD>turboUsd){ verdict=trLit(`⭐ Turbo — grosse valeur, très contesté (${contest}%) → le boost décide`,`⭐ Turbo — high value, heavily contested (${contest}%) → boost decides`); col='var(--green)'; }
-        else { verdict=trLit('Turbo marginal (valeur ≈ coût du cast)','Turbo marginal (value ≈ cast cost)'); col='var(--accent)'; }
-      }
+      const valUSD=valX1*m, contest=BOOST_CONTEST[m], r=roundsOf(m), a=alloc[m];
+      let verdict,col;
+      if(m===1){ verdict=trLit('Passe — gratuit, valeur minime','Skip — free, tiny value'); col='var(--muted)'; }
+      else if(costTurbo>0 && valUSD<turboUsd){ verdict=trLit('Passe — vaut moins qu\'un cast Turbo','Skip — worth less than a Turbo cast'); col='var(--muted)'; }
+      else if(a>0 && a>=r){ verdict=trLit(`⭐ Turbo — les ~${r} rondes du cycle`,`⭐ Turbo — all ~${r} rounds this cycle`); col='var(--green)'; }
+      else if(a>0){ verdict=trLit(`⭐ Turbo ~${a} des ~${r} rondes (ton budget s'arrête ici)`,`⭐ Turbo ~${a} of ~${r} rounds (budget stops here)`); col='var(--accent)'; }
+      else { verdict=trLit('Passe — budget déjà mis sur les plus gros','Skip — budget already spent on higher mults'); col='var(--muted)'; }
       return `<tr><td>x${m}</td><td class="num">${contest}%</td><td class="num">${valX1>0?uUSD(valUSD):'—'}</td><td style="color:${col}">${verdict}</td></tr>`;
     }).join('');
     html += `<div class="card"><span class="kicker">${trLit('Ta stratégie recommandée','Your recommended strategy')}</span>
@@ -979,13 +984,15 @@ function renderBoost(){
         <thead><tr><th>${trLit('Multi','Mult')}</th><th>${trLit('Contesté','Contested')}</th><th>${trLit('Valeur / bloc','Value / block')}</th><th>${trLit('Reco','Advice')}</th></tr></thead>
         <tbody>${rows}</tbody></table></div>
       <div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface2);line-height:1.55">
-        <b>${trLit('Coût réel du setup','Real setup cost')} :</b> ${trLit(`Turbo sur x8/x16/x32 = le bot caste sur CHAQUE ronde qualifiante ≈ <b>${Math.round(castsFull)} casts/cycle</b> = <b>${fmtNum(fullGmt,0)} GMT (${uUSD(fullUsd)})</b>/cycle, soit ~${fmtNum(fullGmt/7,0)} GMT/jour. Ton budget ${fmtNum(budgetGmt,0)} GMT (${uUSD(budgetUsd)}) = ~<b>${nTurbo} casts</b> → couvre seulement <b>~${daysCov.toFixed(1)} j sur 7</b>, puis le bot s'arrête.`,`Turbo on x8/x16/x32 = the bot casts on EVERY qualifying round ≈ <b>${Math.round(castsFull)} casts/cycle</b> = <b>${fmtNum(fullGmt,0)} GMT (${uUSD(fullUsd)})</b>/cycle, i.e. ~${fmtNum(fullGmt/7,0)} GMT/day. Your budget ${fmtNum(budgetGmt,0)} GMT (${uUSD(budgetUsd)}) = ~<b>${nTurbo} casts</b> → covers only <b>~${daysCov.toFixed(1)} of 7 days</b>, then the bot stops.`)}
-        <div style="margin-top:8px">${budgetUsd < fullUsd
-          ? trLit(`⚠️ <b>Pas assez pour un cycle complet.</b> Options : (a) monter le budget à ~<b>${uUSD(fullUsd)}</b> ; (b) ne viser que <b>x16/x32</b> (~${fmtNum(gmt1632,0)} GMT ≈ ${uUSD(usd1632)}/cycle) ; (c) n'activer le bot que quelques jours ciblés (ex. lun–mer).`,`⚠️ <b>Not enough for a full cycle.</b> Options: (a) raise budget to ~<b>${uUSD(fullUsd)}</b>; (b) target only <b>x16/x32</b> (~${fmtNum(gmt1632,0)} GMT ≈ ${uUSD(usd1632)}/cycle); (c) run the bot only a few targeted days (e.g. Mon–Wed).`)
-          : trLit('✅ Couvre un cycle complet sur x8/x16/x32.','✅ Covers a full cycle on x8/x16/x32.')}</div>
-        <div style="margin-top:8px;color:var(--faint);font-size:.82rem">${trLit('Rappel : <b>évite</b> le x1 (gratuit) et l\'étalement de petits Clan Power-up sur x2/x4 (le test A a prouvé que ça perd). Concentre sur les gros multiplicateurs.','Reminder: <b>avoid</b> x1 (free) and spreading cheap Clan Power-ups on x2/x4 (test A proved it loses). Concentrate on the big multipliers.')}</div>
+        <b>${trLit('Ton plan avec ce budget','Your plan with this budget')} :</b> ${covered
+          ? trLit(`~${nTurbo} Turbo → <b>${covered}</b> · coût ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`,`~${nTurbo} Turbo → <b>${covered}</b> · cost ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`)
+          : trLit('budget trop bas pour un seul Turbo rentable — augmente-le.','budget too low for even one worthwhile Turbo — raise it.')}
+        <div style="margin-top:8px">${ rem>0 && covered
+          ? trLit(`Il te reste ~${rem} cast(s) après les multiplicateurs rentables — monte tes casts ou tiens-toi-en là.`,`~${rem} cast(s) left after the worthwhile multipliers — add casts or stop there.`)
+          : (nextGap ? trLit(`Pour couvrir tout le <b>x${nextGap}</b>, il faudrait plus de budget. Setup complet (x8/x16/x32) ≈ ${uUSD(fullUsd)}/cycle.`,`To fully cover <b>x${nextGap}</b>, you'd need more budget. Full setup (x8/x16/x32) ≈ ${uUSD(fullUsd)}/cycle.`) : '') }</div>
+        <div style="margin-top:8px;color:var(--faint);font-size:.82rem">${trLit('Le bot caste sur CHAQUE ronde qualifiante → le budget se répartit du plus gros multiplicateur vers le bas. Évite x1 et l\'étalement x2/x4.','The bot casts on EVERY qualifying round → the budget fills from the biggest multiplier down. Avoid x1 and spreading on x2/x4.')}</div>
       </div>
-      ${avgPass!=null?`<small class="muted" style="display:block;margin-top:10px">${trLit(`⚖️ Ton passif fait ≈ <b>${uUSD(avgPass)}</b> net/cycle. Ce budget coûte ≈ <b>${uUSD(budgetUsd)}</b> → pour battre le passif, le boost doit ajouter <b>plus de ${uUSD(budgetUsd)}</b> de blocs gagnés grâce à lui. Teste 1 cycle et compare le net réel.`,`⚖️ Your passive makes ≈ <b>${uUSD(avgPass)}</b> net/cycle. This budget costs ≈ <b>${uUSD(budgetUsd)}</b> → to beat passive, the boost must add <b>more than ${uUSD(budgetUsd)}</b> in blocks won thanks to it. Test 1 cycle and compare the real net.`)}</small>`:''}
+      ${avgPass!=null?`<small class="muted" style="display:block;margin-top:10px">${trLit(`⚖️ Ton passif fait ≈ <b>${uUSD(avgPass)}</b> net/cycle. Ce plan dépense ≈ <b>${uUSD(spentUsd)}</b> → pour battre le passif, le boost doit ajouter <b>plus de ${uUSD(spentUsd)}</b> de blocs gagnés grâce à lui. Teste 1 cycle et compare le net réel.`,`⚖️ Your passive makes ≈ <b>${uUSD(avgPass)}</b> net/cycle. This plan spends ≈ <b>${uUSD(spentUsd)}</b> → to beat passive, the boost must add <b>more than ${uUSD(spentUsd)}</b> in blocks won thanks to it. Test 1 cycle and compare the real net.`)}</small>`:''}
     </div>`;
   }
 
