@@ -972,7 +972,7 @@ function renderBoost(){
       <p class="muted" style="margin:6px 0 10px;line-height:1.5">${trLit('Efficacité = points par GMT. Rondes COURTES et LONGUES ne récompensent pas les mêmes sorts. Palier base/Super/Ultra = ×1/×10/×100 (coût ET effet) → même efficacité, choisis-le assez gros pour battre les adversaires.','Efficiency = points per GMT. SHORT and LONG rounds reward different spells. Tier base/Super/Ultra = ×1/×10/×100 (cost AND effect) → same efficiency, pick it big enough to beat opponents.')}</p>
       <div class="table-wrap"><table class="cyc"><thead><tr><th>${trLit('Sort','Spell')}</th><th>${trLit('Effet','Effect')}</th><th>${trLit('pts/GMT court','pts/GMT short')}</th><th>${trLit('pts/GMT long','pts/GMT long')}</th></tr></thead><tbody>${srows}</tbody></table></div>
       <div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--surface2);line-height:1.55">
-        ${trLit(`<b>Rondes courtes (&lt; 5 min)</b> → <b style="color:var(--green)">${winShort.n}</b> (burst instantané, imbattable au GMT). <b>Rondes longues</b> → <b style="color:var(--green)">${winLong.n}</b> (s'accumule). La durée est aléatoire → configure les DEUX : Focus pour les courtes, Turbo pour les longues. Le % de rondes courtes/longues de ta ligue est dans l'onglet Clans.`,`<b>Short rounds (&lt; 5 min)</b> → <b style="color:var(--green)">${winShort.n}</b> (instant burst, unbeatable per GMT). <b>Long rounds</b> → <b style="color:var(--green)">${winLong.n}</b> (accumulates). Duration is random → set up BOTH: Focus for short, Turbo for long. Your league's short/long split is in the Clans tab.`)}
+        ${trLit(`<b>Tu ne peux pas prévoir la durée d'une ronde avant qu'elle finisse.</b> Le bot applique un setup FIXE par multiplicateur → la solution est de <b>caster les DEUX</b> sur tes multiplicateurs cibles : <b style="color:var(--green)">Turbo</b> (workhorse, gros points sur courtes ET longues) + <b style="color:var(--green)">Focus</b> (1 GMT, renforce les courtes où son burst de 2,5M peut faire basculer). Turbo gagne les longues, Focus fait pencher les courtes — celui qui compte gagne selon la durée. Le palier scale ton pari pour battre les adversaires.`,`<b>You can't know a round's length before it ends.</b> The bot applies a FIXED setup per multiplier → the answer is to <b>cast BOTH</b> on your target multipliers: <b style="color:var(--green)">Turbo</b> (workhorse, big points on short AND long) + <b style="color:var(--green)">Focus</b> (1 GMT, strengthens short rounds where its 2.5M burst can tip the result). Turbo wins the long ones, Focus tips the short ones — whichever matters wins by duration. The tier scales your bid to beat opponents.`)}
       </div></div>`;
     const nTurbo = costTurbo>0? Math.floor(budgetGmt/costTurbo) : 0;
     // Coût RÉEL : le bot caste sur CHAQUE ronde qualifiante → estimer combien de rondes x8/x16/x32 par cycle.
@@ -983,8 +983,9 @@ function renderBoost(){
     const _durB = entries.filter(e=>e.type==='bloc' && e.dureeRondeMin>0);
     const pctShort = _durB.length>=3 ? Math.round(_durB.filter(e=>e.dureeRondeMin<5).length/_durB.length*100) : 40;
     const fShort = pctShort/100;
-    // Coût MOYEN par ronde boostée = Focus (1 GMT) sur les courtes + Turbo sur les longues.
-    const blendGmt = fShort*1 + (1-fShort)*(costTurbo||21.5), blendUsd = blendGmt*pxGmt;
+    // On ne peut PAS prédire la durée → le Turbo est le workhorse (marche sur courtes ET longues), coût par ronde.
+    const blendGmt = (costTurbo||21.5), blendUsd = blendGmt*pxGmt;
+    const focusInsGmt = 1;   // Focus ajouté en assurance rondes-courtes (+1 GMT/ronde)
     const castsFull = [8,16,32].reduce((a,m)=>a+roundsOf(m),0);
     const casts1632 = [16,32].reduce((a,m)=>a+roundsOf(m),0);
     const fullGmt = castsFull*blendGmt, fullUsd = fullGmt*pxGmt;
@@ -1003,8 +1004,8 @@ function renderBoost(){
       let verdict,col;
       if(m===1){ verdict=trLit('Passe — gratuit, valeur minime','Skip — free, tiny value'); col='var(--muted)'; }
       else if(valUSD<blendUsd){ verdict=trLit('Passe — vaut moins que le coût d\'un boost','Skip — worth less than one boost'); col='var(--muted)'; }
-      else if(a>0 && a>=r){ verdict=trLit(`⭐ Boost les ~${r} rondes (Focus si courte · Turbo si longue)`,`⭐ Boost all ~${r} rounds (Focus if short · Turbo if long)`); col='var(--green)'; }
-      else if(a>0){ verdict=trLit(`⭐ Boost ~${a} des ~${r} rondes (budget s'arrête ici)`,`⭐ Boost ~${a} of ~${r} rounds (budget stops here)`); col='var(--accent)'; }
+      else if(a>0 && a>=r){ verdict=trLit(`⭐ Turbo sur les ~${r} rondes du cycle`,`⭐ Turbo on all ~${r} rounds this cycle`); col='var(--green)'; }
+      else if(a>0){ verdict=trLit(`⭐ Turbo ~${a} des ~${r} rondes (budget s'arrête ici)`,`⭐ Turbo ~${a} of ~${r} rounds (budget stops here)`); col='var(--accent)'; }
       else { verdict=trLit('Passe — budget déjà mis sur les plus gros','Skip — budget already spent on higher mults'); col='var(--muted)'; }
       return `<tr><td>x${m}</td><td class="num">${contest}%</td><td class="num">${valX1>0?uUSD(valUSD):'—'}</td><td style="color:${col}">${verdict}</td></tr>`;
     }).join('');
@@ -1014,12 +1015,12 @@ function renderBoost(){
         <tbody>${rows}</tbody></table></div>
       <div style="margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface2);line-height:1.55">
         <b>${trLit('Ton plan avec ce budget','Your plan with this budget')} :</b> ${covered
-          ? trLit(`~${nBoosts} boosts → <b>${covered}</b> · coût ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}). Sur chaque ronde : <b>Focus</b> si courte, <b>Turbo</b> si longue (coût moyen ~${fmtNum(blendGmt,1)} GMT, ${pctShort}% de courtes).`,`~${nBoosts} boosts → <b>${covered}</b> · cost ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}). On each round: <b>Focus</b> if short, <b>Turbo</b> if long (avg cost ~${fmtNum(blendGmt,1)} GMT, ${pctShort}% short).`)
-          : trLit('budget trop bas pour un seul boost rentable — augmente-le.','budget too low for even one worthwhile boost — raise it.')}
+          ? trLit(`<b>Turbo</b> sur ~${nBoosts} rondes → <b>${covered}</b> · coût ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`,`<b>Turbo</b> on ~${nBoosts} rounds → <b>${covered}</b> · cost ~${fmtNum(spentGmt,0)} GMT (${uUSD(spentUsd)}).`)
+          : trLit('budget trop bas pour un seul Turbo rentable — augmente-le.','budget too low for even one worthwhile Turbo — raise it.')}
         <div style="margin-top:8px">${ rem>0 && covered
-          ? trLit(`Il te reste ~${rem} boost(s) après les multiplicateurs rentables — monte les casts ou tiens-toi-en là.`,`~${rem} boost(s) left after the worthwhile multipliers — add casts or stop there.`)
+          ? trLit(`Il te reste ~${rem} cast(s) après les multiplicateurs rentables — monte les casts ou tiens-toi-en là.`,`~${rem} cast(s) left after the worthwhile multipliers — add casts or stop there.`)
           : (nextGap ? trLit(`Pour couvrir tout le <b>x${nextGap}</b>, il faudrait plus de budget. Setup complet (x8/x16/x32) ≈ ${uUSD(fullUsd)}/cycle.`,`To fully cover <b>x${nextGap}</b>, you'd need more budget. Full setup (x8/x16/x32) ≈ ${uUSD(fullUsd)}/cycle.`) : '') }</div>
-        <div style="margin-top:8px;color:var(--faint);font-size:.82rem">${trLit('Coût moyen = Focus (1 GMT) sur les rondes courtes + Turbo sur les longues. Le bot caste sur chaque ronde qualifiante → le budget se répartit du plus gros multiplicateur vers le bas. Évite x1.','Avg cost = Focus (1 GMT) on short rounds + Turbo on long ones. The bot casts on every qualifying round → the budget fills from the biggest multiplier down. Avoid x1.')}</div>
+        <div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(52,199,89,.10);color:var(--green);font-size:.82rem;line-height:1.5">${trLit(`💡 Tu ne peux pas prévoir la durée d'une ronde → le <b>Turbo est ton workhorse</b> : il donne de gros points sur les courtes ET les longues. Ajoute <b>Focus</b> (+1 GMT/ronde, ~${fmtNum(totalAlloc*focusInsGmt,0)} GMT/cycle) en assurance : il renforce tes rondes courtes pour presque rien. Le bot caste les deux à chaque ronde ; celui qui compte gagne selon la durée.`,`💡 You can't predict a round's length → the <b>Turbo is your workhorse</b>: it gives big points on short AND long rounds. Add <b>Focus</b> (+1 GMT/round, ~${fmtNum(totalAlloc*focusInsGmt,0)} GMT/cycle) as insurance: it strengthens your short rounds for almost nothing. The bot casts both every round; whichever matters wins by duration.`)}</div>
       </div>
       ${avgPass!=null?`<small class="muted" style="display:block;margin-top:10px">${trLit(`⚖️ Ton passif fait ≈ <b>${uUSD(avgPass)}</b> net/cycle. Ce plan dépense ≈ <b>${uUSD(spentUsd)}</b> → pour battre le passif, le boost doit ajouter <b>plus de ${uUSD(spentUsd)}</b> de blocs gagnés grâce à lui. Teste 1 cycle et compare le net réel.`,`⚖️ Your passive makes ≈ <b>${uUSD(avgPass)}</b> net/cycle. This plan spends ≈ <b>${uUSD(spentUsd)}</b> → to beat passive, the boost must add <b>more than ${uUSD(spentUsd)}</b> in blocks won thanks to it. Test 1 cycle and compare the real net.`)}</small>`:''}
     </div>`;
