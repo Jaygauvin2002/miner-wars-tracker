@@ -1341,7 +1341,7 @@ function renderApercu(){
       <div class="stat"><div class="label">Dépenses totales</div><div class="val">${fmtUSD(tot.depUSD)}</div><div class="sub">${fmtNum(tot.depGmt,0)} GMT</div></div>
       <div class="stat"><div class="label">Net spells</div><div class="val ${net>=0?'pos':'neg'}">${fmtUSD(net)}</div></div>
       <div class="stat"><div class="label" title="Gains cumulés ÷ dépenses cumulées (tous cycles). > 1× = profitable.">ROI global ⓘ</div><div class="val ${roi>=1?'pos':'neg'}">${tot.depUSD>0?roi.toFixed(2)+"×":"—"}</div></div>
-      <div class="stat"><div class="label" title="Récompense − dépense de spells (les frais élec./maintenance sont déjà retirés au payout).">Net ⓘ</div><div class="val ${tot.netAbs>=0?'pos':'neg'}">${fmtUSD(tot.netAbs)}</div><div class="sub">après spells</div></div>
+      <div class="stat"><div class="label" title="${trLit('Récompense − dépense de spells (les frais élec./maintenance sont déjà retirés au payout).','Reward − spell spending (electricity/maintenance fees already removed at payout).')}">Net ⓘ</div><div class="val ${tot.netAbs>=0?'pos':'neg'}">${fmtUSD(tot.netAbs)}</div><div class="sub">${trLit('après spells','after spells')}</div></div>
       <div class="stat"><div class="label">Meilleur bloc</div><div class="val">${fmtNum(meilleur)}</div><div class="sub">sats</div></div>
     </div>
   </div>`;
@@ -1454,9 +1454,9 @@ function renderObservations(){
   // Multiplicateur moyen gagné
   if(blocs.length){
     const moy = blocs.reduce((a,e)=>a+e.multiplicateur,0)/blocs.length;
-    obs.push({t:'info', m:`Multiplicateur moyen de tes blocs gagnés : x${moy.toFixed(1)} (${blocs.length} bloc${blocs.length>1?'s':''}).`});
+    obs.push({t:'info', m:trLit(`Multiplicateur moyen de tes blocs gagnés : x${moy.toFixed(1)} (${blocs.length} bloc${blocs.length>1?'s':''}).`,`Average multiplier of your won blocks: x${moy.toFixed(1)} (${blocs.length} block${blocs.length>1?'s':''}).`)});
   } else {
-    obs.push({t:'info', m:"Aucun bloc saisi — commence par la baseline passive (bot OFF)."});
+    obs.push({t:'info', m:trLit("Aucun bloc saisi — commence par la baseline passive (bot OFF).","No block entered — start with the passive baseline (bot OFF).")});
   }
 
   // Rappel baseline
@@ -1478,7 +1478,7 @@ function renderObservations(){
 
 // Écran d'accueil quand il n'y a aucune donnée.
 function renderOnboarding(){
-  return `<div class="card">
+  return trLit(`<div class="card">
     <h2>Bienvenue</h2>
     <p style="margin:6px 0 12px;color:var(--muted)">Ton tableau de bord se remplira dès que tu saisiras des données. Pour démarrer :</p>
     <ol style="margin:0;padding-left:18px;line-height:1.9">
@@ -1491,7 +1491,20 @@ function renderOnboarding(){
       <button class="btn blue" onclick="switchTab('reglages')">Réglages</button>
       <button class="btn accent" onclick="switchTab('plan')">Voir le Plan</button>
     </div>
-  </div>`;
+  </div>`,`<div class="card">
+    <h2>Welcome</h2>
+    <p style="margin:6px 0 12px;color:var(--muted)">Your dashboard fills up as soon as you enter data. To get started:</p>
+    <ol style="margin:0;padding-left:18px;line-height:1.9">
+      <li>Go to <b>Settings</b> and enter your config (TH, EE, league, budget).</li>
+      <li>Do a <b>passive baseline</b> (bot OFF): click <b>Miner Service</b> every day + enter a <b>Day</b>.</li>
+      <li>For each block won, add a <b>Block</b> (&lt; 15 s). On Tuesday, enter the <b>Payout</b>.</li>
+      <li>Check the <b>Plan</b> tab for the full strategy.</li>
+    </ol>
+    <div class="btn-row" style="margin-top:14px">
+      <button class="btn blue" onclick="switchTab('reglages')">Settings</button>
+      <button class="btn accent" onclick="switchTab('plan')">View the Plan</button>
+    </div>
+  </div>`);
 }
 
 function renderDashboard(){
@@ -1593,13 +1606,13 @@ function renderStripCycle(s, prev){
       <div class="stat"><div class="label">Budget bot</div><div class="val">${fmtNum(reste,0)}</div><div class="sub">GMT restants / ${fmtNum(budget,0)}</div><div class="progress ${pct>90?'hot':''}"><span style="width:${pct.toFixed(0)}%"></span></div></div>
     </div>
     ${s.netReel ? (s.netSrc==='saisi'
-      ? `<small class="muted" style="display:block;margin-top:8px">${ic('check',12)} <b style="color:var(--green)">Net réel saisi</b> : <b>${fmtNum(s.netReelGmt,1)} GMT</b> (${fmtUSD(s.netAbsoluUSD)})${s.thAchatGmt>0?` · dont ${fmtNum(s.thAchatGmt,1)} achats TH`:''} — dépôt du payout, frais inclus.</small>`
-      : `<small class="muted" style="display:block;margin-top:8px">${ic('check',12)} <b style="color:var(--green)">Net réel</b> : dépôt <b>${fmtNum(s.soldeFin,1)} GMT</b> (solde du wallet après payout, avant de vider)${s.thAchatGmt>0?` + ${fmtNum(s.thAchatGmt,1)} achats TH`:''} − spells = <b>${fmtUSD(s.netAbsoluUSD)}</b>.</small>`) : ''}
+      ? `<small class="muted" style="display:block;margin-top:8px">${ic('check',12)} <b style="color:var(--green)">${trLit('Net réel saisi','Real net entered')}</b> : <b>${fmtNum(s.netReelGmt,1)} GMT</b> (${fmtUSD(s.netAbsoluUSD)})${s.thAchatGmt>0?` · ${trLit(`dont ${fmtNum(s.thAchatGmt,1)} achats TH`,`incl. ${fmtNum(s.thAchatGmt,1)} TH purchases`)}`:''} — ${trLit('dépôt du payout, frais inclus.','payout deposit, fees included.')}</small>`
+      : `<small class="muted" style="display:block;margin-top:8px">${ic('check',12)} <b style="color:var(--green)">${trLit('Net réel','Real net')}</b> : ${trLit('dépôt','deposit')} <b>${fmtNum(s.soldeFin,1)} GMT</b> (${trLit('solde du wallet après payout, avant de vider','wallet balance after payout, before emptying')})${s.thAchatGmt>0?` + ${trLit(`${fmtNum(s.thAchatGmt,1)} achats TH`,`${fmtNum(s.thAchatGmt,1)} TH purchases`)}`:''} − spells = <b>${fmtUSD(s.netAbsoluUSD)}</b>.</small>`) : ''}
     ${!s.netReel && s.projSrc ? `<small class="muted" style="display:block;margin-top:8px">${ic('info',12)} <b>Projection ~${fmtUSD(s.netAbsoluUSD)}</b> ${s.projSrc==='projection'?`— basée sur ton dernier net réel × ta perf de blocs de ce cycle (projetée sur 7 j)`:`— prorata de ton dernier net réel`}. Le vrai chiffre = solde avant/après au payout.</small>` : ''}
     ${!s.aPayout && !s.netReel && s.feeDiag ? renderFeeDiag(s.feeDiag) : ''}
     ${(s.rankBtc!=null||s.rankGmt!=null) ? `<small class="muted" style="display:block;margin-top:8px">Rang du clan : ${s.rankBtc!=null?`BTC <b>#${s.rankBtc}</b>`:''}${(s.rankBtc!=null&&s.rankGmt!=null)?' · ':''}${s.rankGmt!=null?`GMT <b>#${s.rankGmt}</b>`:''}</small>` : ''}
-    ${!s.aPayout && !s.netReel && (s.nbBlocs||s.etat) ? `<small class="muted">${ic('clock',12)} Gains provisoires (${s.etat?'total du jeu':'estimations des blocs'}) — figés au payout du mardi.</small>` : ''}
-    ${!s.aPayout && !s.live && s.nbBlocsJeu!=null ? `<small class="muted" style="display:block;margin-top:6px">Réf. jeu : <b>${s.nbBlocsJeu}</b> blocs (multiplicateurs additionnés) · ${fmtNum(s.etat.btcSats||0)} sats · ${fmtNum(s.etat.gmt||0,1)} GMT — ${manque>0?`<span style="color:var(--accent)">tes blocs loggés = ${loggedMult}, il en manque ${manque}</span>`:(loggedMult>s.nbBlocsJeu?(blocPlusRecent?`<span style="color:var(--muted)">tes blocs loggés = ${loggedMult} — bloc récent pas encore dans le total du jeu (mets-le à jour à ta prochaine Journée) ${ic('info',12)}</span>`:`<span style="color:var(--red)">tes blocs loggés = ${loggedMult} (plus que le jeu, vérifie)</span>`):`<span style="color:var(--green)">tes blocs loggés collent (${loggedMult}) ${ic('check',12)}</span>`)}</small>` : ''}
+    ${!s.aPayout && !s.netReel && (s.nbBlocs||s.etat) ? `<small class="muted">${ic('clock',12)} ${trLit(`Gains provisoires (${s.etat?'total du jeu':'estimations des blocs'}) — figés au payout du mardi.`,`Provisional earnings (${s.etat?'game total':'block estimates'}) — locked at the Tuesday payout.`)}</small>` : ''}
+    ${!s.aPayout && !s.live && s.nbBlocsJeu!=null ? `<small class="muted" style="display:block;margin-top:6px">${trLit('Réf. jeu :','Game ref.:')} <b>${s.nbBlocsJeu}</b> ${trLit('blocs (multiplicateurs additionnés)','blocks (multipliers summed)')} · ${fmtNum(s.etat.btcSats||0)} sats · ${fmtNum(s.etat.gmt||0,1)} GMT — ${manque>0?`<span style="color:var(--accent)">${trLit(`tes blocs loggés = ${loggedMult}, il en manque ${manque}`,`your logged blocks = ${loggedMult}, ${manque} missing`)}</span>`:(loggedMult>s.nbBlocsJeu?(blocPlusRecent?`<span style="color:var(--muted)">${trLit(`tes blocs loggés = ${loggedMult} — bloc récent pas encore dans le total du jeu (mets-le à jour à ta prochaine Journée)`,`your logged blocks = ${loggedMult} — recent block not yet in the game total (update it on your next Journal)`)} ${ic('info',12)}</span>`:`<span style="color:var(--red)">${trLit(`tes blocs loggés = ${loggedMult} (plus que le jeu, vérifie)`,`your logged blocks = ${loggedMult} (more than the game, check)`)}</span>`):`<span style="color:var(--green)">${trLit(`tes blocs loggés collent (${loggedMult})`,`your logged blocks match (${loggedMult})`)} ${ic('check',12)}</span>`)}</small>` : ''}
     ${s.live ? `<small class="muted" style="display:block;margin-top:6px">${ic('info',12)} ${s.liveFinal?`<b style="color:var(--green)">Définitif</b> — payout du mardi encaissé`:`Chiffres du cycle mis à jour par Claude`}${s.liveMaj?` · <b>${s.liveMaj}</b>`:''}.</small>` : ''}
     ${s.aPayout && !s.netReel ? `<small class="muted">${ic('check',12)} Payout — récompense <b>${fmtUSD(s.gainsUSD)}</b>${s.feeUSD>0?` − frais <b>${fmtUSD(s.feeUSD)}</b>`:''} = net <b>${fmtUSD(s.gainsUSD - s.feeUSD)}</b> ; c'est la vérité du cycle.</small>` : ''}
     ${s.netReel && s.feeUSD>0 ? `<small class="muted" style="display:block;margin-top:6px">${ic('info',12)} Frais réels saisis : élec + service = <b>${fmtUSD(s.feeUSD)}</b> (pour l'analyse ; déjà inclus dans le net du solde).</small>` : ''}
@@ -1633,8 +1646,8 @@ function renderBreakeven(){
   let phrase, cls='';
   if(valX1<=0){ phrase = "Saisis quelques blocs (avec leur multiplicateur) + un payout pour estimer la valeur."; }
   else if(depSpells<=0.01){ phrase = "Cycle passif : aucune dépense de spells à rembourser — chaque bloc est du profit (les frais sont pris au payout)."; cls='pos'; }
-  else if(poidsCycle>=cible){ phrase = `Even atteint : tes blocs (<b>${poidsCycle}</b> éq. x1) couvrent tes ${fmtUSD(depSpells)} de dépenses.`; cls='pos'; }
-  else { phrase = `Encore ~<b>${cible-poidsCycle}</b> équivalents x1 pour rembourser tes ${fmtUSD(depSpells)} — un seul bloc x16 en donne 16.`; }
+  else if(poidsCycle>=cible){ phrase = trLit(`Even atteint : tes blocs (<b>${poidsCycle}</b> éq. x1) couvrent tes ${fmtUSD(depSpells)} de dépenses.`,`Break-even reached: your blocks (<b>${poidsCycle}</b> x1-eq.) cover your ${fmtUSD(depSpells)} of spending.`); cls='pos'; }
+  else { phrase = trLit(`Encore ~<b>${cible-poidsCycle}</b> équivalents x1 pour rembourser tes ${fmtUSD(depSpells)} — un seul bloc x16 en donne 16.`,`~<b>${cible-poidsCycle}</b> more x1-equivalents to repay your ${fmtUSD(depSpells)} — a single x16 block gives 16.`); }
   const pct = (cible && cible>0) ? Math.min(100, poidsCycle/cible*100) : 0;
 
   return `<div class="card"><span class="kicker">Seuil de rentabilité — cette semaine</span>
@@ -1642,13 +1655,13 @@ function renderBreakeven(){
       <div class="stat"><div class="label" title="Gains ÷ somme des multiplicateurs. Un bloc x16 vaut 16 éq. x1. Ancrée sur tes payouts réels dès qu'il y en a.">Valeur d'un éq. x1 ⓘ</div><div class="val">${valX1>0?fmtUSD(valX1):'—'}</div><div class="sub">${valX1>0?`un x16 ≈ ${fmtUSD(valX1*16)} · ${valReel?'réel (payouts)':'estimé'}`:'pas encore de données'}</div></div>
       <div class="stat"><div class="label">Dépense ce cycle</div><div class="val">${fmtUSD(depSpells)}</div><div class="sub">${fmtNum(cur.depGmt,0)} GMT</div></div>
       <div class="stat"><div class="label" title="Dépense ÷ valeur d'un équivalent x1.">Éq. x1 pour être even ⓘ</div><div class="val">${cible!=null?cible:'—'}</div><div class="sub">sur les spells</div></div>
-      <div class="stat"><div class="label">Éq. x1 gagnés</div><div class="val ${cls}">${poidsCycle}${cible?` / ${cible}`:''}</div><div class="sub">sur ${cur.nbBlocs} bloc(s) loggé(s)${cur.nbBlocsJeu!=null?` / ${cur.nbBlocsJeu} au jeu`:''}</div></div>
+      <div class="stat"><div class="label">Éq. x1 gagnés</div><div class="val ${cls}">${poidsCycle}${cible?` / ${cible}`:''}</div><div class="sub">${trLit(`sur ${cur.nbBlocs} bloc(s) loggé(s)${cur.nbBlocsJeu!=null?` / ${cur.nbBlocsJeu} au jeu`:''}`,`on ${cur.nbBlocs} logged block(s)${cur.nbBlocsJeu!=null?` / ${cur.nbBlocsJeu} in-game`:''}`)}</div></div>
     </div>
     ${cible?`<div class="progress" style="margin-top:12px"><span style="width:${pct.toFixed(0)}%;background:${poidsCycle>=cible?'var(--green)':'var(--accent)'}"></span></div>`:''}
-    ${manqueCur>0 && !cur.live?`<small class="muted" style="display:block;margin-top:8px;color:var(--accent)">${ic('warn',12)} ${manqueCur} bloc(s) du jeu pas encore loggé(s) — le poids « éq. x1 » ci-dessus est sous-évalué tant que tu ne les saisis pas (avec leur multiplicateur).</small>`:''}
-    ${cur.live?`<small class="muted" style="display:block;margin-top:8px;color:var(--faint)">${ic('info',12)} Mode live : le détail « éq. x1 » par bloc n'est pas fourni (pas de multiplicateurs) — les gains et le net ci-dessus restent exacts.</small>`:''}
-    <small class="muted" style="display:block;margin-top:10px">${phrase} <span style="color:var(--faint)">Chaque bloc compte selon son multiplicateur (x16 = 16 éq. x1). Total loggé : ${nTot} blocs = <b>${poidsTot}</b> éq. x1 (mult. moyen x${multMoy.toFixed(1)}). Valeur ${valReel?'ancrée sur tes payouts réels':'estimée (aucun payout encore saisi)'}.</span></small>
-    <small class="muted" style="display:block;margin-top:8px;border-top:1px solid var(--border);padding-top:10px">Généré <b>ce cycle</b> : ${fmtNum(cur.satsGagnes)} sats + ${fmtNum(cur.gmtGagnes,1)} GMT (≈ ${fmtUSD(cur.gainsUSD)}) &nbsp;·&nbsp; <b>depuis le début</b> : ${fmtNum(satsTot)} sats + ${fmtNum(gmtTot,1)} GMT (≈ ${fmtUSD(gTot)})</small>
+    ${manqueCur>0 && !cur.live?`<small class="muted" style="display:block;margin-top:8px;color:var(--accent)">${ic('warn',12)} ${trLit(`${manqueCur} bloc(s) du jeu pas encore loggé(s) — le poids « éq. x1 » ci-dessus est sous-évalué tant que tu ne les saisis pas (avec leur multiplicateur).`,`${manqueCur} game block(s) not logged yet — the "x1-eq." weight above is underestimated until you enter them (with their multiplier).`)}</small>`:''}
+    ${cur.live?`<small class="muted" style="display:block;margin-top:8px;color:var(--faint)">${ic('info',12)} ${trLit(`Mode live : le détail « éq. x1 » par bloc n'est pas fourni (pas de multiplicateurs) — les gains et le net ci-dessus restent exacts.`,`Live mode: the per-block "x1-eq." detail isn't provided (no multipliers) — the earnings and net above stay exact.`)}</small>`:''}
+    <small class="muted" style="display:block;margin-top:10px">${phrase} <span style="color:var(--faint)">${trLit(`Chaque bloc compte selon son multiplicateur (x16 = 16 éq. x1). Total loggé : ${nTot} blocs = <b>${poidsTot}</b> éq. x1 (mult. moyen x${multMoy.toFixed(1)}). Valeur ${valReel?'ancrée sur tes payouts réels':'estimée (aucun payout encore saisi)'}.`,`Each block counts by its multiplier (x16 = 16 x1-eq.). Total logged: ${nTot} blocks = <b>${poidsTot}</b> x1-eq. (avg mult. x${multMoy.toFixed(1)}). Value ${valReel?'anchored on your real payouts':'estimated (no payout entered yet)'}.`)}</span></small>
+    <small class="muted" style="display:block;margin-top:8px;border-top:1px solid var(--border);padding-top:10px">${trLit(`Généré <b>ce cycle</b> : ${fmtNum(cur.satsGagnes)} sats + ${fmtNum(cur.gmtGagnes,1)} GMT (≈ ${fmtUSD(cur.gainsUSD)}) &nbsp;·&nbsp; <b>depuis le début</b> : ${fmtNum(satsTot)} sats + ${fmtNum(gmtTot,1)} GMT (≈ ${fmtUSD(gTot)})`,`Generated <b>this cycle</b>: ${fmtNum(cur.satsGagnes)} sats + ${fmtNum(cur.gmtGagnes,1)} GMT (≈ ${fmtUSD(cur.gainsUSD)}) &nbsp;·&nbsp; <b>since the start</b>: ${fmtNum(satsTot)} sats + ${fmtNum(gmtTot,1)} GMT (≈ ${fmtUSD(gTot)})`)}</small>
   </div>`;
 }
 
@@ -1755,8 +1768,8 @@ function renderVerdict(){
     <div>
       ${kick}
       <div class="verdict-label"><span class="dot" style="background:${dot}"></span>${label}</div>
-      <p class="muted" style="margin:8px 0 6px;font-size:.9rem">Écart de ROI net moyen (spells) entre tes cycles boostés et passifs.</p>
-      <small class="muted">Basé sur ${boostes.length} cycle(s) boosté(s) vs ${passifs.length} passif(s)${conf}.</small>
+      <p class="muted" style="margin:8px 0 6px;font-size:.9rem">${trLit('Écart de ROI net moyen (spells) entre tes cycles boostés et passifs.','Average net ROI gap (spells) between your boosted and passive cycles.')}</p>
+      <small class="muted">${trLit(`Basé sur ${boostes.length} cycle(s) boosté(s) vs ${passifs.length} passif(s)${conf}.`,`Based on ${boostes.length} boosted cycle(s) vs ${passifs.length} passive one(s)${conf}.`)}</small>
     </div>
     <div>
       <div class="verdict-big ${cls}">${diff>=0?'+':''}${fmtUSD(diff)} <span style="font-size:.95rem;color:var(--muted);font-weight:600">/cycle</span></div>
@@ -1778,7 +1791,7 @@ function detruireChart(k){ if(charts[k]){ charts[k].destroy(); delete charts[k];
 function renderGraphiques(){
   if(typeof Chart === "undefined"){
     document.getElementById("tab-graphiques").innerHTML =
-      '<div class="warn">Chart.js indisponible (hors-ligne au premier lancement). Reconnecte-toi puis reviens.</div>';
+      trLit('<div class="warn">Chart.js indisponible (hors-ligne au premier lancement). Reconnecte-toi puis reviens.</div>','<div class="warn">Chart.js unavailable (offline on first launch). Reconnect and come back.</div>');
     return;
   }
   Chart.defaults.color = "#98a1b3";
@@ -1981,8 +1994,8 @@ function detailEntree(e){
       const gross=(+e.rewardUSD||0)+(+e.prUSD||0), fee=(+e.elecUSD||0)+(+e.serviceUSD||0);
       return `Payout : récompense ${fmtUSD(gross)} − frais ${fmtUSD(fee)} = net ${fmtUSD(gross-fee)}` + notes(e);
     }
-    if(e.montantNet!=null){ const u=e.unite||'gmt'; const lbl = u==='usd'?'US$':(u==='sats'?' sats':' GMT'); return `Payout net : ${u==='usd'?'US$':''}${fmtNum(e.montantNet, u==='sats'?0:2)}${u==='usd'?'':lbl} (frais déjà déduits)` + notes(e); }
-    return `Reçu ${fmtNum(e.btcSatsRecu)} sats · ${fmtNum(e.gmtRecu,2)} GMT · frais ${fmtNum(e.fraisSats)} sats` + notes(e);
+    if(e.montantNet!=null){ const u=e.unite||'gmt'; const lbl = u==='usd'?'US$':(u==='sats'?' sats':' GMT'); const amt=`${u==='usd'?'US$':''}${fmtNum(e.montantNet, u==='sats'?0:2)}${u==='usd'?'':lbl}`; return trLit(`Payout net : ${amt} (frais déjà déduits)`,`Net payout: ${amt} (fees already deducted)`) + notes(e); }
+    return trLit(`Reçu ${fmtNum(e.btcSatsRecu)} sats · ${fmtNum(e.gmtRecu,2)} GMT · frais ${fmtNum(e.fraisSats)} sats`,`Received ${fmtNum(e.btcSatsRecu)} sats · ${fmtNum(e.gmtRecu,2)} GMT · fees ${fmtNum(e.fraisSats)} sats`) + notes(e);
   }
   if(e.type==="botcfg"){
     const parts = (e.setups||[]).map(s=> `x${s.mult} : ${fmtNum(s.gmtDepense,1)} GMT${s.spells&&s.spells.length?" ("+s.spells.join("/")+")":""}`);
@@ -2620,6 +2633,72 @@ addI18N({exact:{
  "Ligues":"Leagues",
  "🔎 Tape un nom de clan…":"🔎 Type a clan name…",
  "🔎 Cherche un clan par nom…":"🔎 Search a clan by name…"
+}});
+addI18N({exact:{
+ "Rendement des blocs (cycle)":"Block yield (cycle)",
+ "Coût GMT / bloc":"GMT cost / block",
+ "Dépenses GMT du cycle ÷ blocs gagnés.":"Cycle GMT spending ÷ blocks won.",
+ "Blocs — total du jeu (un x4 = 4)":"Blocks — game total (an x4 = 4)",
+ "Meilleur bloc":"Best block",
+ "Sats moyens / bloc":"Avg sats / block",
+ "GMT perso moyen / bloc":"Avg personal GMT / block",
+ "Entre le solde GMT de ton wallet juste après le payout, avant de le vider.":"Enter your wallet's GMT balance right after the payout, before emptying it.",
+ "Rechargé dans le bot aujourd'hui (GMT — 0 sauf recharge)":"Topped up the bot today (GMT — 0 unless top-up)",
+ "GMT dépensé à la main (hors bot — optionnel)":"GMT spent manually (outside bot — optional)",
+ "💰 Solde GMT du wallet APRÈS le payout (avant de vider)":"💰 Wallet GMT balance AFTER payout (before emptying)",
+ "Net reçu ce cycle (USD) — si tu préfères en $":"Net received this cycle (USD) — if you prefer $",
+ "Entre le net reçu ce cycle":"Enter the net received this cycle",
+ "Aucune entrée.":"No entries.",
+ "Cycle passif de référence :":"Passive reference cycle:",
+ "(< 15 s) : multiplicateur, sats, GMT, durée.":"(< 15 s): multiplier, sats, GMT, duration.",
+ "(le ROI se recale dessus). Souvent inutile : la récompense du cycle est captée auto.":"(ROI re-aligns on it). Often unnecessary: the cycle reward is captured automatically.",
+ "(passif puis boosté) — décide de tout.":"(passive then boosted) — decides everything.",
+ "(priorité 1) — le round le plus payant":"(priority 1) — the most rewarding round",
+ "(priorité 2)":"(priority 2)",
+ "Comme tu vides à chaque semaine, ce solde = ton dépôt du cycle. L'app en retire le coût du bot pour donner ton net.":"Since you empty it every week, this balance = your cycle deposit. The app subtracts the bot cost to give your net.",
+ "Les frais sont estimés d'après ton dernier payout (exacts au prochain mardi).":"Fees are estimated from your last payout (exact next Tuesday).",
+ "Net réel = variation de ton solde GMT (spells & frais déjà inclus). Sinon estimation : récompense − spells − frais.":"Real net = change in your GMT balance (spells & fees already included). Otherwise estimate: reward − spells − fees.",
+ "dans Réglages (= 100 US$ au prix du jour).":"in Settings (= US$100 at today's price).",
+ "dès le cooldown (~12 h) : gratuit, points + rabais jusqu'à 3 %. Le bot payant ne le fait PAS.":"as soon as the cooldown (~12 h) is up: free, points + up to 3% discount. The paid bot does NOT.",
+ "si ROI spells médian > 1 ET gain vs baseline > 0 (≥ 3 cycles).":"if median spell ROI > 1 AND gain vs baseline > 0 (≥ 3 cycles).",
+ "si tu gagnes très peu même boosté → problème de structure, envisager un clan.":"if you win very little even boosted → structural problem, consider a clan.",
+ "après 2 cycles consécutifs à ROI > 1.":"after 2 consecutive cycles at ROI > 1.",
+ "— protège le budget des rounds fréquents":"— protects the budget on frequent rounds"
+},fragments:{
+ "— le vrai total est figé au":"— the real total is locked at the",
+ "(rechargé)":"(topped up)",
+ ". Le solde est capté auto par l'extension.":". The balance is auto-captured by the extension.",
+ "Payout encaissé —":"Payout received —",
+ "Payout — récompense":"Payout — reward",
+ "Payout : récompense":"Payout: reward",
+ "(frais déjà déduits) ; c'est la vérité du cycle.":"(fees already deducted); that's the cycle's truth.",
+ "(frais déjà déduits)":"(fees already deducted)",
+ "; c'est la vérité du cycle.":"; that's the cycle's truth.",
+ "frais estimés":"estimated fees",
+ "Dépense du bot =":"Bot spend =",
+ "À chaque cycle : saisis":"Each cycle: enter",
+ "À chaque bloc gagné, ajoute un":"For each block won, add a",
+ "pour la stratégie complète.":"for the full strategy.",
+ "cycles passifs de référence. Lance le Spell Bot un cycle pour voir s'il fait mieux que le passif.":"passive reference cycles. Run the Spell Bot for one cycle to see if it beats passive.",
+ "après spells":"after spells",
+ "de dépenses.":"of spending.",
+ "· estimé":"· estimated",
+ "réel (payouts)":"real (payouts)",
+ "ancrée sur tes payouts réels":"anchored on your real payouts",
+ "estimée (aucun payout encore saisi)":"estimated (no payout entered yet)",
+ "Généré ":"Generated ",
+ "depuis le début":"since the start",
+ "Basé sur ":"Based on ",
+ "un x16 ≈":"an x16 ≈",
+ "Reçu ":"Received ",
+ "· frais ":"· fees ",
+ "bloc(s)":"block(s)",
+ "blocs":"blocks",
+ "bloc ":"block ",
+ " au jeu":" in-game",
+ "sur les spells":"on spells",
+ "sur ":"on ",
+ "pas encore de données":"no data yet"
 }});
 init();
 </script>
